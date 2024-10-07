@@ -1,0 +1,61 @@
+#!/bin/bash
+#SBATCH --job-name=fastp
+#SBATCH -N 1
+#SBATCH --mem=100GB
+#SBATCH --ntasks-per-node=24
+#SBATCH -t 6-00:00:00
+
+FASTQC=/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/Software
+export PATH=$PATH:$FASTQC
+
+NPROCS=$SLURM_NPROCS
+
+
+mkdir -p MULTIQC_VIZ_DIR
+
+mkdir -p FASTP_OUT_DIR
+
+mkdir -p CHKPNT_DIR
+
+for f in $(ls *_1.fq.gz)
+do
+basename=${f##*/}
+bs="${basename%_1.fq.gz}"
+infile="${f%_1.fq.gz}"
+
+left_file=${infile}_1.fq.gz
+right_file=${infile}_2.fq.gz
+
+if [ ! -f "CHKPNT_DIR/${bs}_fastp.chkpt" ]; then
+
+    call="fastp --thread $NPROCS --detect_adapter_for_pe \
+    --json MULTIQC_VIZ_DIR/${bs}_fastp.json \
+    --html MULTIQC_VIZ_DIR/${bs}_fastp.html \
+    -i $left_file -I $right_file \
+    -o FASTP_OUT_DIR/${bs}_R1.fq.gz  -O FASTP_OUT_DIR/${bs}_R2.fq.gz"
+
+    echo "Running fastp in '${bs}' sample."
+
+    echo $call
+
+    eval $call
+
+    unlink $left_file
+    unlink $right_file
+
+    touch  CHKPNT_DIR/${bs}_fastp.chkpt
+
+else
+    echo "'CHKPNT_DIR/${bs}_fastp.chkpt' already exists."
+    echo "Continue with next sample."
+fi
+
+
+done
+
+WDM=/LUSTRE/apps/Anaconda/2023/miniconda3/bin/
+
+$WDM/multiqc MULTIQC_VIZ_DIR/*_fastp.json  -o MULTIQC_VIZ_DIR --config multiqc_info.conf
+
+
+exit
