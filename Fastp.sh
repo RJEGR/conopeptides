@@ -26,9 +26,14 @@ infile="${f%_1.fq.gz}"
 left_file=${infile}_1.fq.gz
 right_file=${infile}_2.fq.gz
 
+# Consider to
+# --disable_length_filtering: length filtering is enabled by default. If this option is specified, length filtering is disabled
+# --length_required: reads shorter than length_required will be discarded, default is 15. (int [=15])
+  
 if [ ! -f "CHKPNT_DIR/${bs}_fastp.chkpt" ]; then
 
     call="fastp --thread $NPROCS --detect_adapter_for_pe \
+    # --disable_length_filtering
     --json MULTIQC_VIZ_DIR/${bs}_fastp.json \
     --html MULTIQC_VIZ_DIR/${bs}_fastp.html \
     -i $left_file -I $right_file \
