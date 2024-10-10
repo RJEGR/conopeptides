@@ -66,7 +66,7 @@ right_file=${bs}_R2.fq.gz
     hisat2  --phred33 --dta -p $CPU \
         -x INDEX/$REF_PREFIX -1 $left_file -2 $right_file \
         --rg-id=${bs} --rg SM:${bs} -S $WD/${bs}.sam \
-        --summary-file ${bs}.summary.txt --met-file ${bs}.met.txt
+        --summary-file $WD/${bs}.summary.txt --met-file $WD/${bs}.met.txt
 
     samtools sort -@ $CPU -o $WD/${bs}.sorted.bam $WD/${bs}.sam
 
@@ -78,7 +78,7 @@ else
 fi
 
 WD2=`pwd`
-WD2=S2_STRINGTIE_DENOVO_MODE${REF_PREFIX}_DIR
+WD2=S2_STRINGTIE_DENOVO_MODE_${REF_PREFIX}_DIR
 
 
 mkdir -p $WD2
@@ -99,18 +99,24 @@ done
 
 echo "Continue with next sample."
 
-ls -d -1 $WD2/*.gtf > stringtie_gtf_list.txt
+ls -d -1 $WD2/*.gtf > ${REF_PREFIX}_stringtie_gtf_list.txt
 
-if [ ! -f "transcripts.gtf" ]; then
- stringtie --rf --merge -p $CPU -o transcripts.gtf stringtie_gtf_list.txt
+if [ ! -f "${REF_PREFIX}_transcripts.gtf" ]; then
+ stringtie --rf --merge -p $CPU -o ${REF_PREFIX}_transcripts.gtf ${REF_PREFIX}_stringtie_gtf_list.txt
 
 else
     echo "Merging step already exists. Continue w/ Feature Count"
 fi
 
 # 2) Count 
-ls -d -1 $WD/*.sorted.bam > sorted_bam_list.txt
+# ls -d -1 $WD/*.sorted.bam > ${REF_PREFIX}_sorted_bam_list.txt
 
-featureCounts -T $CPU -a transcripts.gtf -o feature_counts.txt sorted_bam_list.txt
+if [ ! -f "${REF_PREFIX}_counts.txt" ]; then
+ featureCounts -T $CPU -a ${REF_PREFIX}_transcripts.gtf -o ${REF_PREFIX}_counts.txt $WD/${bs}.sorted.bam
+
+else
+    echo "${REF_PREFIX}_counts.txt file already exists"
+fi
+
 
 exit
