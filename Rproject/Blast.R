@@ -46,4 +46,15 @@ df %>% distinct(subject, db) %>%
   count(db) %>%
   ggplot(aes(x = n, y = db)) +
   geom_col()
+
+df %>% 
+  rename("identifier" = "subject") %>%
+  mutate(identifier =  sapply(strsplit(identifier, "[|]"), `[`, 1)) %>%
+  left_join(DF) %>%
+  mutate(yaxis = `gene superfamily`) %>%
+  count(db, yaxis) %>%
+  group_by(db) %>%
+  arrange(desc(n)) %>% 
+  mutate(yaxis = factor(yaxis, levels=unique(yaxis))) %>%
+  ggplot(aes(y = yaxis, x = n, fill = db)) + geom_col(position = position_dodge2(width = 0.5))
   

@@ -11,13 +11,13 @@
 NPROCS=$SLURM_NPROCS
 
 
-EXPORT=/LUSTRE/apps/bioinformatica/conodictor/conodictor/
-export PATH=$PATH:$EXPORT
- 
-# Load correct python module conda-2024_py3.11
+module load conda-2024
+source activate conodictor
 
 FASTA=$1
 
 conodictor --out ${FASTA%.*}_dir --cpus $NPROCS $FASTA
+
+exit
 
 # conodictor --out outfolder --cpus $NPROCS --mlen 51 file.fa

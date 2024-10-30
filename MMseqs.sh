@@ -13,10 +13,10 @@ export PATH=$PATH:$EXPORT
 
 thread_count=$SLURM_NPROCS
 
-cat $f1 $f2 > Merged.fasta
+cat $f1 $f2 > Merged.tmp
 
 # s1)
-mmseqs createdb Merged.fasta DB 
+mmseqs createdb Merged.tpm DB 
 
 # s2
 # How to redundancy filter sequences with identical length and 100% length overlap?
@@ -32,5 +32,14 @@ mmseqs cluster DB Merged_clusters tmp --threads $thread_count --min-seq-id 0.98
 
 # s3 create tsv format
 mmseqs createtsv DB DB Merged_clusters Merged_clusters.tsv
+
+# Extract representative sequence
+# To extract the representative of a clustering use the following commands:
+
+mmseqs createsubdb Merged_clusters DB DB_clu_rep
+mmseqs convert2fasta DB_clu_rep Merged_clusters.fasta   
+
+rm -r *.tmp
+rm -r tmp
 
 exit

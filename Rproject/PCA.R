@@ -13,7 +13,6 @@ Manifest <- read_tsv(Manifest) %>% distinct()
 
 cols <- read_tsv(f[1], skip = 1) %>% select(contains(".sorted.bam")) %>% names()
 
-
 readR <- function(f) {
   
   df <- read_tsv(f, skip = 1) 
@@ -42,7 +41,7 @@ DF <- lapply(f, readR)
 
 DF <- do.call(rbind, DF)
 
-DF <- readR(f[2])
+DF <- readR(f[1])
 
 m <- DF %>% 
   as_tibble(rownames = "ID") %>%
