@@ -91,7 +91,9 @@ sum(keepdna %in% QUERY) # must match str(QUERY) # 2526
 
 DNA <- DNA[keepdna %in% QUERY]
 
-DNADB <- data.frame(dna_width = width(DNA), dna_sequence = DNA, transcript_id = names(DNA)) %>% as_tibble() 
+width <- Biostrings::width(DNA)
+
+DNADB <- data.frame(dna_width = width, dna_sequence = DNA, transcript_id = names(DNA)) %>% as_tibble() 
 
 
 DB1 <- DNADB %>% right_join(DB1)
@@ -114,9 +116,9 @@ PEP <- PEP[keep]
 
 
 # Get the longest
+width <- Biostrings::width(PEP)
 
-
-PEPDB <- data.frame(width = width(PEP), PEP, transcript_id = transcript_id[keep], peptide_id = names(PEP)) %>% as_tibble() 
+PEPDB <- data.frame(width = width, PEP, transcript_id = transcript_id[keep], peptide_id = names(PEP)) %>% as_tibble() 
 
 # PEPDB %>% filter(transcript_id %in% "TRINITY_DN102516_c0_g1_i1") %>% filter(width == max(width))
 PEPDB %>% count(transcript_id, sort = T)
