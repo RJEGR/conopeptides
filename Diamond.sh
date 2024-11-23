@@ -21,6 +21,8 @@ QUERY=$1
 
 output=${QUERY%.*}_vs_${BS%.*}.diamond.blastx.outfmt6
 
+START_TIME=$SLURM_JOB_START_TIME
+
 
 if [ ! -f "${REF%.*}.dmnd" ]; then
 
@@ -32,5 +34,11 @@ fi
 
 diamond blastx -d ${REF%.*} -q $QUERY -p $NPROCS -k 1 -e 1e-5 -o $output --outfmt 6
 
+END_TIME=$SLURM_JOB_END_TIME
+
+echo "Start job: $START_TIME"
+echo "End job: $END_TIME"
 
 exit
+
+seqkit grep -f IDs.txt read_1.fq.gz -o dir/read_1.fq.gz
