@@ -46,11 +46,15 @@ corset  -f true -i corset *.corset-reads
 exit
 
 # https://github.com/Adamtaranto/Corset-tools
+# error in Target cluster not in Map file: TRINITY_***
+# see NotFound_clusters.txt.log
 
 EXPORT=~/Documents/Tools/Corset-tools
+# EXPORT=/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/Software/Corset-tools-master/
 export PATH=$PATH:$EXPORT
 
 
+# module load conda-2024
 
 fetchClusterSeqs.py -i ../Merged_clusters.fasta -t clusters.txt -o Merged_clusters_fetched.fasta -c clusters.txt
 
