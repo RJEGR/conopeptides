@@ -23,15 +23,20 @@ cols <- strsplit(cols,"[|]")[[1]]
 
 DF <- DF %>% separate(ID, into = cols, sep = "[|]")
 
-DF %>% count(name)
-DF %>% count(`gene superfamily`)
-
-DF %>% count(`cysteine framework`)
-DF %>% count(`evidence`)
-
 write_tsv(DF, file = file.path(dir, "conoserver_protein.tsv"))
 
 # library(xml2)
 # 
 # xml2::rad
 # read_xml(f[2])
+DF %>% count(identifier)
+
+DF %>% count(name)
+
+DF %>% count(`organism`)
+
+DF %>% count(`cysteine framework`)
+
+DF %>% count(`evidence`)
+
+DF %>% count(`protein type`)
