@@ -1,5 +1,5 @@
 # Ricardo Gomez-Reyes
-# Visualize Nx and BUSCO completness of Nodipecten subnodosus
+# Visualize Nx and BUSCO completness 
 # Calculate nx distribution
 # Include sizes after transrating
 # Try to tag conopeptides according to conoserver dataset
@@ -15,11 +15,13 @@ require(Biostrings)
 require(dplyr)
 require(ggplot2)
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/02.Assembly/"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/02.Assembly/"
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
 
 f <- list.files(dir, "fasta", full.names = T)
 
-basename(f)
+f <- f[grepl("^transcripts.fasta|blastx", basename(f))]
+
 
 contig_Nx <- function(f) {
   
@@ -35,7 +37,7 @@ contig_Nx <- function(f) {
 
 metrics_df <- function(f) {
   
-  # width <- sort(seq(1,100), decreasing = TRUE)))
+  # width <- sort(seq(1,100), decreasing = TRUE)
   
   width <- contig_Nx(f)
   
@@ -87,6 +89,16 @@ recode_to <- structure(c("Trinity", "Spades"), names = recode_to)
 
 df <- mutate(df, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
+
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/04.Merge/transdecoder_dir/"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
+
+f <- list.files(dir, "fasta$", full.names = T)
+df2 <- lapply(f, metrics_df)
+df2 <- do.call(rbind, df2)
+
+df <- rbind(df, df2)
+
 # rnsps <- mean(contig_Nx(f[[1]]))
 # trnt <- mean(contig_Nx(f[[2]]))
 
@@ -95,10 +107,10 @@ p <- ggplot(df, aes(x = x, y = n, group = Assembly, color = Assembly)) +
   ggplot2::geom_path(linewidth = 1.5, lineend = "round") +
   geom_point(shape = 21, size = 4) +
   labs(x = "Nx", y = "Contig length", color = "Assembly method") +
-  # ggsci::scale_color_jco() +
-  # ggsci::scale_fill_jco() +
-  scale_color_grey("") +
-  scale_fill_grey("") +
+  ggsci::scale_color_jco() +
+  ggsci::scale_fill_jco() +
+  # scale_color_grey("") +
+  # scale_fill_grey("") +
   # scale_fill_manual("Assembly method", values = c("black", "grey89")) +
   guides(color=guide_legend(title = "", nrow = 1)) +
   theme_bw(base_size = 12, base_family = "GillSans") +
@@ -117,10 +129,10 @@ p <- ggplot(df, aes(y = x, x = n_frac, group = Assembly, fill = Assembly)) +
   # ggplot2::geom_col() +
   ggplot2::geom_col(position = position_dodge2(reverse = T)) +
   labs(x = "Frac. of Scaffolds", y = "Nx", fill = "Assembly method") +
-  scale_color_grey("") +
-  scale_fill_grey("") +
-  # ggsci::scale_color_jco() +
-  # ggsci::scale_fill_jco() +
+  # scale_color_grey("") +
+  # scale_fill_grey("") +
+  ggsci::scale_color_jco() +
+  ggsci::scale_fill_jco() +
   guides(fill=guide_legend(title = "", ncol = 1)) +
   theme_bw(base_size = 16, base_family = "GillSans") +
   theme(legend.position = "top", 

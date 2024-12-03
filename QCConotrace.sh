@@ -22,14 +22,14 @@ mkdir -p FASTP_OUT_DIR
 
 mkdir -p CHKPNT_DIR
 
-for f in $(ls *.fastq)
+for f in $(ls *_1.fq.gz)
 do
 basename=${f##*/}
-bs="${basename%_1.fastq}"
-infile="${f%_1.fastq}"
+bs="${basename%_1.fq.gz}"
+infile="${f%_1.fq.gz}"
 
-left_file=${infile}_1.fastq
-right_file=${infile}_2.fastq
+left_file=${infile}_1.fq.gz
+right_file=${infile}_2.fq.gz
 
 # this configure able the Data Filtration and Initial Assembly step from Phuong, M et al 2019
 
@@ -73,7 +73,7 @@ alfmt=${QUERY%.*}_vs_${BS%.*}.diamond.blastx.fastq
 
 if [ ! -f "CHKPNT_DIR/${bs}_diamond.chkpt" ]; then
 
-    call="diamond blastx -d ${REF%.*} -q $QUERY -p $NPROCS --min-orf 20 -k 1 -e 1e-3 --outfmt 6 qseqid evalue pident -o $outfmt --alfmt fastq --al $alfmt"
+    call="diamond blastx -d ${REF%.*} -q $QUERY -p $NPROCS --min-orf 1 -k 1 -e 1e-3 --outfmt 6 qseqid evalue pident -o $outfmt --alfmt fastq --al $alfmt"
     
     echo $call
 
@@ -90,7 +90,7 @@ done
 
 WDM=/LUSTRE/apps/Anaconda/2023/miniconda3/bin/
 
-$WDM/multiqc MULTIQC_VIZ_DIR/*_fastp.json  -o MULTIQC_VIZ_DIR --config multiqc_info.conf
+$WDM/multiqc MULTIQC_VIZ_DIR/*_fastp.json  -o MULTIQC_VIZ_DIR --config multiqc_info.conf --force
 
 
 exit
