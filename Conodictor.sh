@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -p cicese
-#SBATCH --job-name=conodictor
+#SBATCH --job-name=conopred
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks-per-node=24
@@ -18,6 +18,13 @@ source activate conodictor
 FASTA=$1
 
 conodictor --out ${FASTA%.*}_dir --cpus $NPROCS $FASTA
+
+# Run conosorter
+
+export PATH=/LUSTRE/apps/bioinformatica/hmmer-3.3.2/bin:$PATH
+export PATH=/LUSTRE/apps/bioinformatica/ConoSorter_v1.1:$PATH
+
+ConoSorter -d $FASTA
 
 exit
 
