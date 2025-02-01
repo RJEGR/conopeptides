@@ -44,10 +44,18 @@ rm -r tmp
 
 exit
 
+# Concat
+
+#cat *_merged.fq.gz > MERGED.fq.gz.tmp
+
+#mmseqs createdb MERGED.fq.gz.tmp DB 
+#mmseqs cluster DB MERGED.fq.cl.gz tmp --threads $NPROCS --min-seq-id 0.98
+
 
 # mmseqs createdb Merged_clusters.fasta Merged_clusters_DB
 # mmseqs extractorfs Merged_clusters_DB Merged_clusters_orfs --translate 1 --threads 24
 # mmseqs convert2fasta Merged_clusters_orfs Merged_clusters_orfs.fasta
 
 # TransDecoder.LongOrfs -t Merged_clusters.fasta
+
 
