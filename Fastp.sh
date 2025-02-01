@@ -62,5 +62,4 @@ WDM=/LUSTRE/apps/Anaconda/2023/miniconda3/bin/
 
 $WDM/multiqc MULTIQC_VIZ_DIR/*_fastp.json  -o MULTIQC_VIZ_DIR --config multiqc_info.conf
 
-
 exit
