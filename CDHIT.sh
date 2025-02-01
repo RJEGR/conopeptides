@@ -7,13 +7,13 @@
 EXPORT=/LUSTRE/bioinformatica_data/genomica_funcional/apps/cdhit/
 export PATH=$PATH:$EXPORT
 
-identity=$3  # ranges between 0 to 1, 0.95 means 95% identity threshold
+identity=$2  # ranges between 0 to 1, 0.95 means 95% identity threshold
 word_length=11  # CD-HIT word length parameter
-threads=20  # Number of threads for parallel processing
+threads=$SLURM_NPROCS  # Number of threads for parallel processing = SLURM_NPROCS
 
-cat $1 $2 > Merged.tmp
+# cat $1 $2 > Merged.tmp
 
-REFERENCE=Merged.tmp
+REFERENCE=$1 # Merged.tmp
 
 
 OUTFILE=${REFERENCE%.*}.${identity}.cdhit.fasta
