@@ -24,7 +24,6 @@ backtranambig -sequence conoserver_protein.curated.fa -outfile conoserver_protei
 
 # 
 # srun backtranseq -sequence conoserver_protein.curated.fa -outfile conoserver_protein.curated_backtranseq.fa
-
 ```
 
 The codon usage table is read by default from "Ehum.cut" in the 'data/CODONS' directory of the EMBOSS distribution. 
