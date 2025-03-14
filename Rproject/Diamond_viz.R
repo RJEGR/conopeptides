@@ -123,6 +123,11 @@ p1 <- df %>%
   theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "none")
 
 
+df %>% 
+  # filter(score > 100) %>%
+  distinct(subject, db) %>%
+  dplyr::count(db) %>% view()
+
 p2 <- df %>% 
   distinct(subject, db) %>%
   dplyr::count(db) %>%
@@ -151,6 +156,10 @@ df %>% ggplot(aes(x = score, y = -log10(e), color = db, fill = db)) +
   ggthemes::scale_fill_calc() + ggthemes::scale_color_calc()  + theme_bw()
 
 
+  
+  
+
+  
 # Split by conoserver_protein.tsv
 
 

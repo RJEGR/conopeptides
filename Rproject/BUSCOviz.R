@@ -93,7 +93,7 @@ Method_levs <- df %>% filter(category %in% c("S") & my_species == "Eukaryota") %
 
 df %>%
   mutate(facet = "Completeness") %>%
-  filter(category %in% c("D","S")) %>%
+  filter(category %in% c("F","D","S")) %>%
   mutate(category = dplyr::recode_factor(category, !!!labels)) %>%
   mutate(my_species = factor(my_species, levels = my_sp_lev)) %>%
   mutate(Method = factor(Method, levels = Method_levs)) %>%
@@ -121,7 +121,7 @@ df %>%
   mutate(group = ifelse(grepl("Spades", Method),"Spades", group)) %>%
   mutate(group = ifelse(grepl("MMseqs", Method),"MMseqs", group)) %>%
   mutate(group = factor(group, levels = c("Trinity", "Spades", "MMseqs", "Concat-Lace T-S (Hisat)"))) %>%
-  filter(category %in% c("D","S")) %>%
+  filter(category %in% c("F","D","S")) %>%
   mutate(category = dplyr::recode_factor(category, !!!labels)) %>%
   mutate(my_species = factor(my_species, levels = my_sp_lev)) %>%
   # mutate(Method = factor(Method, levels = Method_levs)) %>%
@@ -130,7 +130,7 @@ df %>%
   geom_col(position = position_dodge2(width = 1, preserve = "single"), width = 1) +
   # scale_y_continuous(labels = scales::percent_format(scale = 1)) +
   labs(y = "% Completeness (BUSCOs)", x = "Assembly method") +
-  scale_fill_manual("", values = c("black", "blue")) +
+  # scale_fill_manual("", values = c("black", "blue")) +
   guides(fill=guide_legend(nrow = 1)) +
   theme_bw(base_size = 14, base_family = "GillSans") +
   theme(legend.position = "top", 
@@ -138,3 +138,12 @@ df %>%
     axis.text.x = element_text(angle = 45, hjust = 1),
     axis.line.x = element_blank(),
     axis.line.y = element_blank())
+
+
+
+df %>%
+  filter(category %in% c("F","D","S")) %>%
+  mutate(category = dplyr::recode_factor(category, !!!labels)) %>%
+  select(-my_values) %>%
+  pivot_wider(names_from = category, values_from = my_percentage) %>%
+  view()

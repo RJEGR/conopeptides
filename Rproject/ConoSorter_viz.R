@@ -111,7 +111,7 @@ write_fasta <- function(f) {
   
 }
 
-lapply(Regex_f, write_fasta)
+# lapply(Regex_f, write_fasta)
 
 # read_regex(Regex_f[3])
 
@@ -142,7 +142,7 @@ recode_to <- structure(
 DF <- mutate(DF, Method = dplyr::recode_factor(Method, !!!recode_to))
 
 
-# Number of orfs predicted (normalize to the total N of transcripts per transcriptome)
+# Number of orfs predicted (normalize to the total N of transcripts per transcriptome) -----
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
 
@@ -425,7 +425,9 @@ pHHMdf <- mutate(pHHMdf, Method = dplyr::recode_factor(Method, !!!recode_to))
 pHHMdf %>%
   filter(Hydrophobicity > 60) %>%
   filter(Protein_width >= 50) %>%
-  dplyr::count(Method) %>% view()
+  dplyr::count(Method) %>% 
+  # DF %>% count(Method) %>% left_join(LEN_DF)
+  view()
 
 
 
