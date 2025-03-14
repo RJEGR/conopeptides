@@ -52,11 +52,13 @@ WD=S1_HISAT2_SAM_BAM_FILES_${REF_PREFIX}_DIR
 
 mkdir -p $WD
 
+mkdir -p $WD/STATS
+
 for i in $(ls *.fq.gz)
 do
 bs="${i%*.fq.gz}"
 
-# Test if the alignment was previously done!
+bam_file=$WD/${bs}.sorted.bam
 
 if [ ! -f "$WD/${bs}.sorted.bam.chkpt" ]; then
 
@@ -65,11 +67,24 @@ merged_reads=${bs}.fq.gz
     hisat2  --phred33 --dta -p $CPU \
         -x INDEX/$REF_PREFIX -U $merged_reads \
         --rg-id=${bs} --rg SM:${bs} -S $WD/${bs}.sam \
-        --summary-file $WD/${bs}.summary.txt --met-file $WD/${bs}.hisat.met.txt
+        --summary-file $WD/${bs}.summary.txt
+        #--met-file $WD/${bs}.hisat.met.txt
 
-    samtools sort -@ $CPU -o $WD/${bs}.sorted.bam $WD/${bs}.sam
+    samtools sort -@ $CPU -o $bam_file $WD/${bs}.sam
 
     touch $WD/${bs}.sorted.bam.chkpt
+
+    call="samtools flagstat $bam_file > $WD/STATS/${bs}.flagstats.txt"
+
+    eval $call
+    
+    call="samtools stats $bam_file > $WD/STATS/${bs}.stats.txt"
+
+    eval $call
+
+    call="samtools depth $bam_file > $WD/STATS/${bs}.depth.txt"
+
+    eval $call
 
 else 
     echo "'$WD/${bs}.sorted.bam' already exists."
@@ -93,6 +108,14 @@ else
 fi
 
 done
+
+WDM=/LUSTRE/apps/Anaconda/2023/miniconda3/bin/
+
+MULTIQCDIR=MULTIQC_VIZ_${REF_PREFIX}_DIR
+
+mkdir -p $MULTIQCDIR
+
+$WDM/multiqc $WD/*.summary.txt -o $MULTIQCDIR
 
 # Merging
 

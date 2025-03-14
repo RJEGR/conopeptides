@@ -13,6 +13,9 @@ export PATH=$PATH:$FASTQC
 EXPORT=/LUSTRE/apps/bioinformatica/diamond_v2.1.8/
 export PATH=$PATH:$EXPORT
 
+EXPORT=/LUSTRE/apps/bioinformatica/ncbi-blast-2.14.0+/bin/
+export PATH=$PATH:$EXPORT
+
 NPROCS=$SLURM_NPROCS
 
 
@@ -73,8 +76,12 @@ alfmt=${QUERY%.*}_vs_${BS%.*}.diamond.blastx.fastq
 
 if [ ! -f "CHKPNT_DIR/${bs}_diamond.chkpt" ]; then
 
-    call="diamond blastx -d ${REF%.*} -q $QUERY -p $NPROCS --min-orf 1 -k 1 -e 1e-3 --outfmt 6 qseqid evalue pident -o $outfmt --alfmt fastq --al $alfmt"
+    #call="diamond blastx -d ${REF%.*} -q $QUERY -p $NPROCS --min-orf 1 -k 1 -e 1e-3 --outfmt 6 qseqid evalue pident -o $outfmt --alfmt fastq --al $alfmt"
     
+    # If nucleotide 
+
+    call="blastn -db ${REF%.*} -query $QUERY -num_threads $NPROCS -e 1e-3 --outfmt 6 -o $outfmt"
+   
     echo $call
 
     eval $call

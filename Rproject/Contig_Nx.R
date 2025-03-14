@@ -4,6 +4,10 @@
 # Include sizes after transrating
 # Try to tag conopeptides according to conoserver dataset
 
+
+# Include Merge > superduper
+# /LUSTRE/bioinformatica_data/genomica_funcional/rgomez/californicus/04.Merge/MMseqs/MMap/S1_HISAT2_SAM_BAM_FILES_Merged_clusters_DIR/LACE_Merged_clusters_DIR
+
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
@@ -16,11 +20,12 @@ require(dplyr)
 require(ggplot2)
 
 # dir <- "/Users/cigom/Documents/GitHub/conopeptides/02.Assembly/"
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
 
-f <- list.files(dir, "fasta", full.names = T)
+f <- list.files(dir, "fasta$", full.names = T)
 
-f <- f[grepl("^transcripts.fasta|blastx", basename(f))]
+# f <- f[grepl("^transcripts.fasta|blastx", basename(f))]
 
 
 contig_Nx <- function(f) {
@@ -83,21 +88,41 @@ df <- do.call(rbind, df)
 
 df <- mutate(df, x = factor(x, levels = unique(df$x)))
 
-recode_to <- c("Trinity.fasta",  "transcripts.fasta")
 
-recode_to <- structure(c("Trinity", "Spades"), names = recode_to)
+unique(df$Assembly)
+
+
+recode_to <- c(
+  "spades_hisat_superDuper.fasta",
+  "spades.fasta",
+  "Merged_hisat_SuperDuper.fasta",
+  "MMseqs_hisat_SuperDuper.fasta",
+  "MMseqs.fasta",
+  "trinity_hisat_superDuper.fasta",
+  "Trinity.fasta")
+
+recode_to <- structure(
+  c(
+    "Spades-Lace (Hisat)", 
+    "Spades (S)", 
+    "Concat-Lace T-S (Hisat)",
+    "MMseqs-Lace T-S (Hisat)",
+    "MMseqs (T-S)",
+    "Trinity-Lace (Hisat)",
+    "Trinity (T)"), 
+  names = recode_to)
 
 df <- mutate(df, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/04.Merge/transdecoder_dir/"
-# dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/04.Merge/transdecoder_dir/"
+# # dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
+# 
+# f <- list.files(dir, "fasta$", full.names = T)
+# df2 <- lapply(f, metrics_df)
+# df2 <- do.call(rbind, df2)
 
-f <- list.files(dir, "fasta$", full.names = T)
-df2 <- lapply(f, metrics_df)
-df2 <- do.call(rbind, df2)
-
-df <- rbind(df, df2)
+# df <- rbind(df, df2)
 
 # rnsps <- mean(contig_Nx(f[[1]]))
 # trnt <- mean(contig_Nx(f[[2]]))
@@ -105,41 +130,49 @@ df <- rbind(df, df2)
 p <- ggplot(df, aes(x = x, y = n, group = Assembly, color = Assembly)) +
   geom_vline(xintercept = "N50", linetype="dashed", alpha=0.5) +
   ggplot2::geom_path(linewidth = 1.5, lineend = "round") +
-  geom_point(shape = 21, size = 4) +
+  geom_point(shape = 21, size = 4, aes(size = n_frac)) +
   labs(x = "Nx", y = "Contig length", color = "Assembly method") +
-  ggsci::scale_color_jco() +
-  ggsci::scale_fill_jco() +
-  # scale_color_grey("") +
-  # scale_fill_grey("") +
-  # scale_fill_manual("Assembly method", values = c("black", "grey89")) +
+  # ggsci::scale_color_jco() +
+  ggsci::scale_color_startrek() +
   guides(color=guide_legend(title = "", nrow = 1)) +
-  theme_bw(base_size = 12, base_family = "GillSans") +
+  theme_bw(base_size = 14, base_family = "GillSans") +
   theme(legend.position = "top", 
     strip.background = element_rect(fill = 'grey89', color = 'white'),
     axis.line.x = element_blank(),
     axis.line.y = element_blank()) 
-p
+
+p <- p + guides(color = guide_legend(title = "", nrow = 3, ncol = 3))
+
+p  
+
 # annotate("text", y = rnsps, x = "N50", angle = 90, label = "label")
 
 # p
 
-ggsave(p, filename = 'Nx-methods.png', path = dir, width = 4, height = 3, device = png, dpi = 300)
+ggsave(p, filename = 'Nx-methods.png', path = dir, width = 7.5, height = 5, device = png, dpi = 300)
 
-p <- ggplot(df, aes(y = x, x = n_frac, group = Assembly, fill = Assembly)) +
+p2 <- ggplot(df, aes(x = x, y = n_frac, group = Assembly, fill = Assembly)) +
   # ggplot2::geom_col() +
   ggplot2::geom_col(position = position_dodge2(reverse = T)) +
-  labs(x = "Frac. of Scaffolds", y = "Nx", fill = "Assembly method") +
+  labs(x = "", y = "Frac. of Scaffolds", fill = "Assembly method") +
   # scale_color_grey("") +
   # scale_fill_grey("") +
-  ggsci::scale_color_jco() +
-  ggsci::scale_fill_jco() +
+  ggsci::scale_fill_startrek() +
   guides(fill=guide_legend(title = "", ncol = 1)) +
-  theme_bw(base_size = 16, base_family = "GillSans") +
-  theme(legend.position = "top", 
+  scale_x_discrete(position = "top") +
+  theme_bw(base_size = 14, base_family = "GillSans") +
+  theme(legend.position = "none", 
     strip.background = element_rect(fill = 'grey89', color = 'white'),
     axis.line.x = element_blank(),
     axis.line.y = element_blank()) 
 
-ggsave(p, filename = 'Nx-methods-2.png', path = dir, width = 4, height = 5, device = png, dpi = 300)
+# p2 + guides(fill = guide_legend(title = "", nrow = 2, ncol = 4))
 
-df %>% group_by(Assembly) %>% summarise(n_seqs = sum(n_seqs), n_frac = sum(n_frac))
+library(patchwork)
+
+p2 <- p / p2
+
+
+ggsave(p2, filename = 'Nx-methods-2.png', path = dir, width = 7.5, height = 10, device = png, dpi = 300)
+
+df %>% group_by(Assembly) %>% summarise(n_seqs = sum(n_seqs), n_frac = sum(n_frac)) %>% arrange(desc(n_seqs))

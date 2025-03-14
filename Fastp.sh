@@ -32,8 +32,10 @@ right_file=${infile}_2.fq.gz
   
 if [ ! -f "CHKPNT_DIR/${bs}_fastp.chkpt" ]; then
 
-    call="fastp --thread $NPROCS --detect_adapter_for_pe \
-    # --disable_length_filtering
+    call="fastp --thread $NPROCS \
+    --detect_adapter_for_pe \
+    --disable_length_filtering \
+    --trim_poly_x  \
     --json MULTIQC_VIZ_DIR/${bs}_fastp.json \
     --html MULTIQC_VIZ_DIR/${bs}_fastp.html \
     -i $left_file -I $right_file \
@@ -44,6 +46,23 @@ if [ ! -f "CHKPNT_DIR/${bs}_fastp.chkpt" ]; then
     echo $call
 
     eval $call
+
+    # Merge and dedup
+    call="fastp --thread $NPROCS \
+    --disable_length_filtering \
+    --dont_eval_duplication \
+    --json MULTIQC_VIZ_DIR/${bs}_fastp.json.tmp.merged \
+    --html MULTIQC_VIZ_DIR/${bs}_fastp.html.tmp.merged \
+    -i FASTP_OUT_DIR/${bs}_R1.fq.gz -I FASTP_OUT_DIR/${bs}_R2.fq.gz \
+    --dedup --dup_calc_accuracy 3 \
+    --merge --merged_out FASTP_OUT_DIR/${bs}_dedup_merged.fq.gz"
+
+    echo "Merging and dedup fastp in '${bs}' sample."
+
+    eval $call
+
+    rm -f MULTIQC_VIZ_DIR/${bs}_fastp.*.tmp.merged
+
 
     unlink $left_file
     unlink $right_file

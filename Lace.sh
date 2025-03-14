@@ -19,6 +19,6 @@ OUTDIR=LACE_${FASTA%.*}_DIR
 
 mkdir -p $OUTDIR
 
-Lace $FASTA clusters.txt -o $OUTDIR
+Lace --cores $SLURM_NPROCS $FASTA clusters.txt -o $OUTDIR
 
 exit
