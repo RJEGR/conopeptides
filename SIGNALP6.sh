@@ -28,6 +28,8 @@ mkdir -p $output_dir
 
 signalp6 --fastafile $INPUT --organism other --output_dir $output_dir --format txt --mode fast --torch_num_threads 20 --write_procs 8
 
+#for i in  $(ls signalp6_*_output_dir/prediction_results.txt); do bs=`basename $i`; px=`echo $i | awk '{ gsub("/", "_") ; print $0 }'` ; cp $i SIGNALP6_OUT/${px}; done
+
 exit
 
 # Run prop 1.0 (use signalp 3.0)
