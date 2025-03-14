@@ -5,15 +5,27 @@
 # Hydrophobicity distribution
 # Count classes of superFamilies (score_sf)
 
+rm(list = ls())
+
+if(!is.null(dev.list())) dev.off()
+
+options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
+
 library(tidyverse)
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir"
+
+# cDNA is sorted initially using ConoSorter [31], 
+# which translates raw cDNA sequences into six reading frames and 
+# extracts sequences from the first start codon in each read to the first subsequent stop codon. 
+# The results generated two files, the Regex.tab file containing unambiguously identified amino acid sequences and 
+# unclassified amino acid sequences considered to be novel peptides, respectively
 
 pHHM_f <- list.files(dir, pattern = "_pHMM.tab", full.names = T) # _pHMM.tab and _Regex.tab
 
 Regex_f <- list.files(dir, pattern = "_Regex.tab", full.names = T) # _pHMM.tab and _Regex.tab
 
-read_regex <- function(f) {
+read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
   
   DF <- read_delim(f, delim = "|", col_names = T) %>% mutate(Method = basename(f))
   
@@ -21,7 +33,8 @@ read_regex <- function(f) {
     dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "transcript" = "Read Name") %>%
     mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
     dplyr::rename("Protein_width"="# A.A", "Cys_number" = "# Cysteine(s)") %>%
-    dplyr::rename("Score_sf"="Score Superfamily", "Score_class" = "Score Class") 
+    dplyr::rename("Score_sf"="Score Superfamily", "Score_class" = "Score Class") %>%
+    dplyr::rename("seq"="Protein Sequence")
   
   
   DF <- DF %>% mutate(Method = gsub("_Regex.tab", "", Method))
@@ -30,11 +43,75 @@ read_regex <- function(f) {
   # Filter step as Borghie et al.
   
   DF %>% 
-    filter(Hydrophobicity > 60) %>%
-    filter(Protein_width >= 50)
+    filter(Hydrophobicity > Hydrophobicity_val) %>%
+    filter(Protein_width >= pwidth_val)
   
   
 }
+
+
+write_fasta <- function(f) {
+  
+  outName <- gsub("_Regex.tab|_pHMM.tab", "", basename(f))
+  
+  select_headers <- c( "transcript", "Conopeptide", "Hydrophobicity","Signal","Pro","Mature")
+  
+  Regex <- read_delim(f, delim = "|", col_names = T) %>%
+    dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "transcript" = "Read Name") %>%
+    mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
+    dplyr::rename("Score_sf"="Score Superfamily", "Score_class" = "Score Class") %>%
+    dplyr::rename("pseq"="Protein Sequence", "Protein_width"="# A.A") %>%
+    dplyr::rename("Signal"="Superfamily (Signal)", "Pro" = "Superfamily (Pro-region)",  "Mature" =  "Superfamily (Mature)") %>%
+    # Any filter step? 
+    # filter(Protein_width < 10) %>%
+    select(starts_with(c(select_headers, "pseq"))) %>%
+    mutate(Hydrophobicity = round(Hydrophobicity, digits = 0)) %>%
+    # mutate(Score_sf = gsub("[^0-9.-]", "", Score_sf)) %>%
+    distinct() %>%
+    unite("header", transcript:Mature, sep = "|") %>%
+    pull(pseq, name = header)
+  
+  # Search pHMM.tab file for 
+  
+  # f2 <-  file.path(dirname(f), paste0(outName, "_pHMM.tab"))
+  
+  f2 <- list.files(path = dirname(f), pattern = paste0(outName, "_pHMM.tab"), full.names = T)
+  
+  # if(!is.empty(f2)) 
+  
+  pHMM <- read_delim(f2, delim = "|", col_names = T) %>%
+    dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "transcript" = "Read Name") %>%
+    mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
+    dplyr::rename("pseq"="Protein Sequence", "Protein_width"="# A.A") %>%
+    dplyr::rename("Signal"="Superfamily (Signal)", "Pro" = "Superfamily (Pro-region)",  "Mature" =  "Superfamily (Mature)") %>%
+    select(starts_with(c(select_headers, "pseq"))) %>%
+    distinct() %>%
+    unite("header", transcript:Mature, sep = "|") %>%
+    pull(pseq, name = header)
+    
+  
+  OUT <- c(Regex, pHMM)
+  
+  # else
+  # OUT <- Regex
+
+  # Any sanity check?
+  
+  any(names(Regex) %in% names(pHMM)) # MUST BE FALSE
+  
+  
+  # Out file
+  
+  # outName <- gsub("_Regex.tab|_pHMM.tab", "", basename(f))
+  
+  outFile <- file.path(dirname(f), paste0(outName, "_regex_pHMM.pep"))
+  
+  Biostrings::writeXStringSet(Biostrings::AAStringSet(OUT), file = outFile)
+  
+  
+}
+
+lapply(Regex_f, write_fasta)
 
 # read_regex(Regex_f[3])
 
@@ -109,7 +186,6 @@ LEN_DF <- lapply(seqs_f, contig_len)
 
 LEN_DF <- do.call(rbind,LEN_DF)
 
-
 DF %>% 
   count(Method) %>% left_join(LEN_DF) %>% 
   mutate(contig_len_frac = n/contig_len) %>% 
@@ -134,11 +210,6 @@ DF %>% ggplot(aes(Hydrophobicity)) + geom_histogram() + facet_grid(~ Method)
 
 # DF %>% ggplot(aes(Hydrophobicity)) + geom_histogram()
 
-# Filter step as Borghie et al.
-
-DF <- DF %>% 
-  filter(Hydrophobicity > 60) %>%
-  filter(Protein_width >= 50)
 
 DF %>% distinct(Conopeptide)
 DF %>% distinct(transcript)
@@ -309,8 +380,6 @@ superfm_df %>%
 
 
 
-
-  
 # DF %>% count(Method, `Superfamily (Signal)`)
 
 DF %>% 
@@ -322,3 +391,56 @@ DF %>%
   ggplot(aes(y = Class, x = frac, fill = Method)) + 
   geom_col(position = position_dodge2(reverse = T)) +
   theme_bw(base_size = 14, base_family = "GillSans")
+
+
+
+# pHMMM *Novel candidates -----
+
+
+read_pHMM <- function(f) {
+  
+  DF <- read_delim(f, delim = "|", col_names = T) %>% mutate(Method = basename(f))
+  
+  DF <- DF %>%
+    dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "transcript" = "Read Name") %>%
+    mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
+    dplyr::rename("Protein_width"="# A.A", "Cys_number" = "# Cysteine(s)") # %>%
+    # dplyr::rename("Score_sf"="Score Superfamily", "Score_class" = "Score Class") 
+  
+  
+  DF %>% mutate(Method = gsub("_pHMM.tab", "", Method))
+
+  
+  
+}
+
+pHHMdf <- lapply(pHHM_f, read_pHMM)
+
+pHHMdf <- do.call(rbind,pHHMdf)
+
+pHHMdf <- mutate(pHHMdf, Method = dplyr::recode_factor(Method, !!!recode_to))
+
+# pHHMdf %>% dplyr::count(Method)
+
+pHHMdf %>%
+  filter(Hydrophobicity > 60) %>%
+  filter(Protein_width >= 50) %>%
+  dplyr::count(Method) %>% view()
+
+
+
+pHHMdf <-read_pHMM(pHHM_f[1])
+
+Regexdf <-read_regex(Regex_f[1], Hydrophobicity_val = 0, pwidth_val = 0)
+
+pHHMdf %>% distinct(transcript) %>% left_join(Regexdf)
+
+Regexdf %>% distinct(transcript)
+
+Regexdf %>%
+  ggplot(aes(Protein_width, color = Method)) + ggplot2::stat_ecdf()
+
+f <- Regex_f[1]
+
+read_delim(f, delim = "|", col_names = T)
+
