@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node=20
 #SBATCH --error=slurm-%j.err
 
-# after ran split_samples.pl, then
+# after run split_samples.pl, then
 
 EXPORT=/LUSTRE/apps/bioinformatica/SPAdes-3.15.5-Linux/bin/
 export PATH=$PATH:$EXPORT
@@ -18,7 +18,7 @@ DIR=$SLURM_SUBMIT_DIR
 
 mkdir -p SPADES_CHKPNT_DIR
 
-for f in $(ls samples_part_*)
+for f in $(ls samples_part_*.txt)
 do
 
 chkpt_file=${f%.txt}.chkpt
@@ -42,7 +42,7 @@ mkdir -p $OUTDIR
 
    #eval $call
 
-   #touch  SPADES_CHKPNT_DIR/$chkpt_file
+   touch  SPADES_CHKPNT_DIR/$chkpt_file
 
 else
     echo "'SPADES_CHKPNT_DIR/$chkpt_file' already exists."
