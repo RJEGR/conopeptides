@@ -429,20 +429,29 @@ pHHMdf %>%
   # DF %>% count(Method) %>% left_join(LEN_DF)
   view()
 
+# AMINOACID LEN
 
+DF %>% select(transcript, Protein_width, Method) %>% mutate(tab = "Regex") %>%
+  rbind(pHHMdf %>% select(transcript, Protein_width, Method) %>% mutate(tab = "pHHM")) %>%
+  distinct() %>%
+  # ggplot(aes(Protein_width)) + 
+  # stat_ecdf(aes(color = tab)) + 
+  # geom_violin() +
+  ggplot(aes(y = Method, x = Protein_width,fill = after_stat(x))) +
+  facet_grid(~ tab, scales = "free_x") +
+  ggridges::geom_density_ridges_gradient(
+    jittered_points = T,
+    position = ggridges::position_points_jitter(width = 0.05, height = 0),
+    point_shape = '|', point_size = 3, point_alpha = 1, alpha = 1) +
+  scale_fill_viridis_c(option = "C") +
+  labs(y = "", x = "Blast bit score") +
+  theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "none")
+    
 
-pHHMdf <-read_pHMM(pHHM_f[1])
-
-Regexdf <-read_regex(Regex_f[1], Hydrophobicity_val = 0, pwidth_val = 0)
-
-pHHMdf %>% distinct(transcript) %>% left_join(Regexdf)
-
-Regexdf %>% distinct(transcript)
-
-Regexdf %>%
-  ggplot(aes(Protein_width, color = Method)) + ggplot2::stat_ecdf()
-
-f <- Regex_f[1]
-
-read_delim(f, delim = "|", col_names = T)
+DF %>% select(transcript, Protein_width, Method) %>% mutate(tab = "Regex") %>%
+  rbind(pHHMdf %>% select(transcript, Protein_width, Method) %>% mutate(tab = "pHHM")) %>%
+  distinct() %>%
+  ggplot(aes(y = Method, x = Protein_width)) +
+  geom_violin() +
+  facet_grid(~ tab, scales = "free_x") 
 
