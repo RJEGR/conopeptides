@@ -97,6 +97,27 @@ p <- p + guides(fill = guide_legend(title = "", nrow = 1, ncol = 4))
 
 p
 
+p <- out %>%
+  group_by(Method) %>%
+  mutate(pie_frq = pie_values/sum(pie_values)) %>%
+  ggplot2::ggplot(aes(x = Method, y = pie_frq, fill = pie_names)) +
+  ggplot2::geom_col() +
+  ggsci::scale_fill_startrek() +
+  # guides(color=guide_legend(title = "", nrow = 2, ncol = 4)) +
+  theme_bw(base_size = 14, base_family = "GillSans") +
+  theme(legend.position = "top", 
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 10),
+    strip.background = element_rect(fill = 'grey89', color = 'white'),
+    axis.line.x = element_blank(),
+    axis.line.y = element_blank()) 
+
+p <- p + guides(fill = guide_legend(title = "", nrow = 1, ncol = 4))
+
+p
+
+ggsave(p, filename = 'Nx-methods.png', path = dir, width = 10, height = 5, device = png, dpi = 300)
+
+
 # raw code
 
 
