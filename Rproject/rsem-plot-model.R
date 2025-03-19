@@ -1,17 +1,15 @@
 #!/usr/bin/env Rscript
 
-
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
 
 options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
+library(tidyverse)
+
 # Load rsem_stats from assembly methods
 # ... four categories of reads --- unalignable, unique, isoform-levelmulti-mapping, ....
-
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/CONCAT_LACE_DIR_stats/"
-
 
 # Alignment statistics -----
 
@@ -49,6 +47,7 @@ read_cntF <- function(f) {
   
   data.frame(pie_names, pie_values, pie_frq, "Sam" = token, Method)
   
+  # my_heights
 }
 
 read_cntF(f[1])
@@ -62,6 +61,7 @@ recode_to <- c(
   "spades_hisat_superDuper_stats",
   "spades.fasta",
   "CONCAT_LACE_DIR_stats",
+  "CONCAT_POLYA_LACE_stats",
   "MMseqs_Lace_TS_stats",
   "MMseqs.fasta",
   "trinity_hisat_superDuper.fasta",
@@ -72,6 +72,7 @@ recode_to <- structure(
     "Spades-Lace (Hisat)", 
     "Spades (S)", 
     "Concat-Lace T-S (Hisat)",
+    "Concat-Lace T-S (Hisat-polyA)",
     "MMseqs-Lace T-S (Hisat)",
     "MMseqs (T-S)",
     "Trinity-Lace (Hisat)",
@@ -115,11 +116,13 @@ p <- p + guides(fill = guide_legend(title = "", nrow = 1, ncol = 4))
 
 p
 
-ggsave(p, filename = 'Nx-methods.png', path = dir, width = 10, height = 5, device = png, dpi = 300)
+ggsave(p, filename = 'rsem-model-methods.png', path = dir, width = 5, height = 5, device = png, dpi = 300)
 
 
-# raw code
+# raw code -----
 
+
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/CONCAT_LACE_DIR_stats/"
 
 setwd(dir)
 
