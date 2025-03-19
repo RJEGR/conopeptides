@@ -111,9 +111,9 @@ write_fasta <- function(f) {
   
 }
 
-# lapply(Regex_f, write_fasta)
+# lapply(Regex_f[2], write_fasta)
 
-# read_regex(Regex_f[3])
+# read_regex(Regex_f[2])
 
 DF <- lapply(Regex_f, read_regex)
 
@@ -127,7 +127,8 @@ recode_to <- c("Trinity",
   "SuperDuper_Spades",
   "MMseqs",
   "MMseqs_hisat_SuperDuper",
-  "Merged_hisat_SuperDuper")
+  "Merged_hisat_SuperDuper",
+  "Merged_polyA_hisat_SuperDuper")
 
 recode_to <- structure(
   c("Trinity (T)", 
@@ -136,7 +137,8 @@ recode_to <- structure(
     "Spades-Lace (Hisat)", 
     "MMseqs (T-S)",
     "MMseqs-Lace T-S (Hisat)",
-    "Concat-Lace T-S (Hisat)"), 
+    "Concat-Lace T-S (Hisat)",
+    "Concat-Lace T-S (Hisat-polA)"), 
   names = recode_to)
 
 DF <- mutate(DF, Method = dplyr::recode_factor(Method, !!!recode_to))
@@ -146,7 +148,7 @@ DF <- mutate(DF, Method = dplyr::recode_factor(Method, !!!recode_to))
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
 
-seqs_f <- list.files(dir, "fasta", full.names = T)
+seqs_f <- list.files(dir, "fasta$", full.names = T)
 
 contig_len <- function(f) {
   
@@ -158,7 +160,8 @@ contig_len <- function(f) {
     "spades_hisat_superDuper.fasta",
     "MMseqs.fasta",
     "MMseqs_hisat_SuperDuper.fasta",
-    "Merged_hisat_SuperDuper.fasta")
+    "Merged_hisat_SuperDuper.fasta",
+    "Merged_polyA_hisat_SuperDuper.fasta")
   
   recode_to <- structure(
     c("Trinity (T)", 
@@ -167,7 +170,8 @@ contig_len <- function(f) {
       "Spades-Lace (Hisat)", 
       "MMseqs (T-S)",
       "MMseqs-Lace T-S (Hisat)",
-      "Concat-Lace T-S (Hisat)"), 
+      "Concat-Lace T-S (Hisat)",
+      "Concat-Lace T-S (Hisat-polA)"), 
     names = recode_to)
   
   DNA <- Biostrings::readDNAStringSet(f)
