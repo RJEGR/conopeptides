@@ -7,7 +7,7 @@ if(!is.null(dev.list())) dev.off()
 
 options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
-dir <- "~/Documents/GitHub/conopeptides/05.Prediction/SIGNALP6_OUT/"
+dir <- "~/Documents/GitHub/conopeptides/05.Prediction/SIGNALP6_OUT/SIGNALP_OUT_DIR/"
 
 f <- list.files(dir, pattern = "txt", full.names = T)
 
@@ -36,4 +36,8 @@ DF %>%
   filter(Signal_peptide_probs > 0.1) %>%
   dplyr::count(Method)
 
-DF %>% ggplot(aes(y = Method, x = Signal_peptide_probs, fill = Method)) + geom_boxplot()
+DF %>% 
+  filter(Prediction == "SP") %>%
+  ggplot(aes(Signal_peptide_probs, color = Method, fill = Method)) + 
+  # geom_density()
+  stat_ecdf(linewidth = 1, alpha = 0.5)

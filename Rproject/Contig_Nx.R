@@ -14,6 +14,8 @@ if(!is.null(dev.list())) dev.off()
 
 library(tidyverse, help, pos = 2, lib.loc = NULL)
 
+pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR"
+
 
 require(Biostrings)
 require(dplyr)
@@ -22,7 +24,10 @@ require(ggplot2)
 # dir <- "/Users/cigom/Documents/GitHub/conopeptides/02.Assembly/"
 # dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
 
-pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/SORTED_regex_pHMM_dir/"
+# pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/SORTED_regex_pHMM_dir/" 
+
+pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/longest_orfs_dir/"
+
 pepf <- list.files(pepdir, "pep$", full.names = T)
 
 
@@ -93,23 +98,20 @@ metrics_df <- function(f, stringSet = "DNA") {
 
 pepdf <- lapply(pepf, metrics_df, stringSet = "AA")
 pepdf <- do.call(rbind, pepdf)
-pepdf <- pepdf %>% mutate(stringSet = "B) Orfs (Transcriptome)")
+pepdf <- pepdf %>% mutate(stringSet = "B) Complete ORFs (Transcriptome)")
 
 
 df <- lapply(f, metrics_df)
-
 df <- do.call(rbind, df)
-
 df <- mutate(df, x = factor(x, levels = unique(df$x)))
-
-unique(df$Assembly)
 
 
 recode_to <- c(
   "spades_hisat_superDuper.fasta",
   "spades.fasta",
-  "Merged_hisat_SuperDuper.fasta",
-  "MMseqs_hisat_SuperDuper.fasta",
+  # "Merged_hisat_SuperDuper.fasta", 
+  "Merged_polyA_hisat_SuperDuper.fasta",
+  # "MMseqs_hisat_SuperDuper.fasta",
   "MMseqs.fasta",
   "trinity_hisat_superDuper.fasta",
   "Trinity.fasta")
@@ -119,7 +121,7 @@ recode_to <- structure(
     "Spades-Lace (Hisat)", 
     "Spades (S)", 
     "Concat-Lace T-S (Hisat)",
-    "MMseqs-Lace T-S (Hisat)",
+    # "MMseqs-Lace T-S (Hisat)",
     "MMseqs (T-S)",
     "Trinity-Lace (Hisat)",
     "Trinity (T)"), 
@@ -127,21 +129,31 @@ recode_to <- structure(
 
 df <- mutate(df, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
+# recode_to <- c(
+#   "SuperDuper_Spades_regex_pHMM.pep",
+#   "spades_regex_pHMM.pep",
+#   "Merged_hisat_SuperDuper_regex_pHMM.pep",
+#   "MMseqs_hisat_SuperDuper_regex_pHMM.pep",
+#   "MMseqs_regex_pHMM.pep",
+#   "SuperDuper_Trinity_regex_pHMM.pep",
+#   "Trinity_regex_pHMM.pep")
+
 recode_to <- c(
-  "SuperDuper_Spades_regex_pHMM.pep",
-  "spades_regex_pHMM.pep",
-  "Merged_hisat_SuperDuper_regex_pHMM.pep",
-  "MMseqs_hisat_SuperDuper_regex_pHMM.pep",
-  "MMseqs_regex_pHMM.pep",
-  "SuperDuper_Trinity_regex_pHMM.pep",
-  "Trinity_regex_pHMM.pep")
+  "spades_hisat_superDuper_longest_orfs.pep",
+  "spades_longest_orfs.pep",
+  "Merged_polyA_hisat_SuperDuper_longest_orfs.pep",
+  # "MMseqs_hisat_SuperDuper_regex_pHMM.pep",
+  "MMseqs_longest_orfs.pep",
+  "trinity_hisat_superDuper_longest_orfs.pep",
+  "Trinity_longest_orfs.pep")
+
 
 recode_to <- structure(
   c(
     "Spades-Lace (Hisat)", 
     "Spades (S)", 
     "Concat-Lace T-S (Hisat)",
-    "MMseqs-Lace T-S (Hisat)",
+    # "MMseqs-Lace T-S (Hisat)",
     "MMseqs (T-S)",
     "Trinity-Lace (Hisat)",
     "Trinity (T)"), 
@@ -149,17 +161,12 @@ recode_to <- structure(
 
 pepdf <- mutate(pepdf, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
-# dir <- "/Users/cigom/Documents/GitHub/conopeptides/04.Merge/transdecoder_dir/"
-# # dir <- "/Users/cigom/Documents/GitHub/conopeptides/07.Reference/"
-# 
-# f <- list.files(dir, "fasta$", full.names = T)
-# df2 <- lapply(f, metrics_df)
-# df2 <- do.call(rbind, df2)
+unique(df$Assembly)
+unique(pepdf$Assembly)
 
-# df <- rbind(df, df2)
+df <- df %>% mutate(stringSet = "A) DNA (Transcriptome)") %>% rbind(pepdf) %>% as_tibble()
 
-
-df <- df %>% mutate(stringSet = "DNA (Transcriptome)") %>% rbind(pepdf)
+write_rds(df, file = paste0(pub_dir, "Contig_nx.rds"))
 
 # rnsps <- mean(contig_Nx(f[[1]]))
 # trnt <- mean(contig_Nx(f[[2]]))
@@ -189,7 +196,9 @@ p
 
 ggsave(p, filename = 'Nx-methods.png', path = dir, width = 10, height = 5, device = png, dpi = 300)
 
-p2 <- ggplot(df, aes(x = x, y = n_frac, group = Assembly, fill = Assembly)) +
+p2 <- 
+  df %>% filter(x == "N50") %>%
+  ggplot(aes(x = x, y = n_frac, group = Assembly, fill = Assembly)) +
   # ggplot2::geom_col() +
   ggplot2::geom_col(position = position_dodge2(reverse = T)) +
   labs(x = "", y = "Frac. of Scaffolds", fill = "Assembly method") +
@@ -200,10 +209,13 @@ p2 <- ggplot(df, aes(x = x, y = n_frac, group = Assembly, fill = Assembly)) +
   facet_wrap(~  stringSet, scales = "free_y") + 
   scale_x_discrete(position = "top") +
   theme_bw(base_size = 14, base_family = "GillSans") +
-  theme(legend.position = "none", 
+  theme(legend.position = "top", 
     strip.background = element_rect(fill = 'grey89', color = 'white'),
     axis.line.x = element_blank(),
     axis.line.y = element_blank()) 
+
+
+p2
 
 df %>% 
   group_by(stringSet, x) %>% mutate(frac = n/sum(n)) %>%
