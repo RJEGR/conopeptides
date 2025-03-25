@@ -105,13 +105,12 @@ df <- lapply(f, metrics_df)
 df <- do.call(rbind, df)
 df <- mutate(df, x = factor(x, levels = unique(df$x)))
 
+unique(df$Assembly)
 
 recode_to <- c(
   "spades_hisat_superDuper.fasta",
   "spades.fasta",
-  # "Merged_hisat_SuperDuper.fasta", 
   "Merged_polyA_hisat_SuperDuper.fasta",
-  # "MMseqs_hisat_SuperDuper.fasta",
   "MMseqs.fasta",
   "trinity_hisat_superDuper.fasta",
   "Trinity.fasta")
@@ -120,8 +119,7 @@ recode_to <- structure(
   c(
     "Spades-Lace (Hisat)", 
     "Spades (S)", 
-    "Concat-Lace T-S (Hisat)",
-    # "MMseqs-Lace T-S (Hisat)",
+    "Concat-Lace T-S (Hisat-polA)", 
     "MMseqs (T-S)",
     "Trinity-Lace (Hisat)",
     "Trinity (T)"), 
@@ -152,8 +150,7 @@ recode_to <- structure(
   c(
     "Spades-Lace (Hisat)", 
     "Spades (S)", 
-    "Concat-Lace T-S (Hisat)",
-    # "MMseqs-Lace T-S (Hisat)",
+    "Concat-Lace T-S (Hisat-polA)",
     "MMseqs (T-S)",
     "Trinity-Lace (Hisat)",
     "Trinity (T)"), 
@@ -166,7 +163,7 @@ unique(pepdf$Assembly)
 
 df <- df %>% mutate(stringSet = "A) DNA (Transcriptome)") %>% rbind(pepdf) %>% as_tibble()
 
-write_rds(df, file = paste0(pub_dir, "Contig_nx.rds"))
+write_rds(df, file = paste0(pub_dir, "/Contig_nx.rds"))
 
 # rnsps <- mean(contig_Nx(f[[1]]))
 # trnt <- mean(contig_Nx(f[[2]]))
