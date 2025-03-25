@@ -5,6 +5,8 @@
 # Hydrophobicity distribution
 # Count classes of superFamilies (score_sf)
 
+# Reruning peptide mode (/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/californicus/05.Prediction/TransDecoder_dir/test_m50_dir > conoSorter of complete orfs predicted)
+
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
@@ -200,6 +202,7 @@ LEN_DF <- do.call(rbind,LEN_DF)
 #   distinct(Method) %>% pull() %>% as.character() -> method_levels
 
 str(gene <- DF %>% pull(transcript))
+
 str(gene <- gsub("_[0-9]+_[0-9]+$","", gene))
 
 
@@ -465,6 +468,49 @@ DF %>%
 
 # pHMMM *Novel candidates -----
 
+read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05) {
+  
+  DF <- read_delim(f, delim = "|", col_names = T) %>% mutate(Method = basename(f))
+  
+  DF <- DF %>%
+    dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "transcript" = "Read Name") %>%
+    mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
+    dplyr::rename("Protein_width"="# A.A", "Cys_number" = "# Cysteine(s)") %>%
+    dplyr::rename("E_value"="E-value Superfamily")
+  
+  # protein_id <- DF %>% pull(ID)
+  # protein_id <- gsub("_[0-9]+_[0-9]+$","", protein_id)
+  
+  DF <- DF %>% mutate(Method = gsub("_pHMM.tab", "", Method)) 
+  
+  DF <- DF %>% 
+    filter(Hydrophobicity > Hydrophobicity_val) %>%
+    filter(Protein_width >= pwidth_val) %>%
+    filter(as.numeric(E_value) < eval)
+
+  
+  DF1 <- DF %>% select(contains(c("transcript","Method","Superfamily ("))) %>%
+    # filter(Score_sf > 0) %>% # Score_sf > 0 == Superfamily != "-"
+    pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
+    filter(Superfamily != "-") %>%
+    mutate(Region = gsub("Superfamily ", "", Region)) %>%
+    group_by(Method, transcript) %>%
+    summarise(across(Region,.fns = paste_col), Score_sf = n()) %>% ungroup()
+  
+  
+  OUT <- DF %>% 
+    select(contains(c("transcript","Method", "Score_sf","Superfamily ("))) %>%
+    pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
+    filter(Superfamily != "-") %>%
+    mutate(Region = gsub("Superfamily ", "", Region)) %>%
+    group_by(Method, transcript) %>%
+    summarise(across(Superfamily, .fns = paste_col), Score_sf = n()) %>% 
+    left_join(DF1) %>%
+    mutate(tab = "pHMM")
+  
+  return(OUT)
+  
+}
 
 read_pHMM <- function(f) {
   
@@ -491,37 +537,37 @@ pHHMdf <- mutate(pHHMdf, Method = dplyr::recode_factor(Method, !!!recode_to))
 
 pHHMdf %>% dplyr::count(Method)
 
-pHHMdf <- pHHMdf %>%  filter(Hydrophobicity > 60) %>% filter(Protein_width >= 50) 
+# pHHMdf <- pHHMdf %>%  filter(Hydrophobicity > 60) %>% filter(Protein_width >= 50) 
+# 
+# pHHMdf %>%
+#   dplyr::count(Method) 
 
-pHHMdf %>%
-  dplyr::count(Method) 
+# pHHMdf_ <- pHHMdf %>% 
+#   select(contains(c("transcript","Method", "Superfamily ("))) %>%
+#   pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
+#   filter(Superfamily != "-") %>%
+#   mutate(Region = gsub("Superfamily ", "", Region)) %>%
+#   # if count number of gene (transcrits ids in the assemblies) instead of orfs candidates:
+#   # mutate(transcript =  gsub("_[0-9]+_[0-9]+$","", transcript)) %>% distinct() %>%
+#   group_by(Method, transcript) %>%
+#   summarise(across(Region,.fns = paste_col), Score_sf = n()) 
 
-pHHMdf_ <- pHHMdf %>% 
-  select(contains(c("transcript","Method", "Superfamily ("))) %>%
-  pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
-  filter(Superfamily != "-") %>%
-  mutate(Region = gsub("Superfamily ", "", Region)) %>%
-  # if count number of gene (transcrits ids in the assemblies) instead of orfs candidates:
-  # mutate(transcript =  gsub("_[0-9]+_[0-9]+$","", transcript)) %>% distinct() %>%
-  group_by(Method, transcript) %>%
-  summarise(across(Region,.fns = paste_col), Score_sf = n()) 
-
-pHHMdf_ <- pHHMdf %>% 
-  select(contains(c("transcript","Method","Superfamily ("))) %>%
-  pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
-  filter(Superfamily != "-") %>%
-  mutate(Region = gsub("Superfamily ", "", Region)) %>%
-  # if count number of gene (transcrits ids in the assemblies) instead of orfs candidates:
-  # mutate(transcript =  gsub("_[0-9]+_[0-9]+$","", transcript)) %>% distinct() %>%
-  group_by(Method, transcript) %>%
-  summarise(across(Superfamily, .fns = paste_col), Score_sf = n()) %>% 
-  left_join(pHHMdf_) %>%
-  select(names(superfm_df)) %>%
-  mutate(tab = "pHHM")
+# pHHMdf_ <- pHHMdf %>% 
+#   select(contains(c("transcript","Method","Superfamily ("))) %>%
+#   pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
+#   filter(Superfamily != "-") %>%
+#   mutate(Region = gsub("Superfamily ", "", Region)) %>%
+#   # if count number of gene (transcrits ids in the assemblies) instead of orfs candidates:
+#   # mutate(transcript =  gsub("_[0-9]+_[0-9]+$","", transcript)) %>% distinct() %>%
+#   group_by(Method, transcript) %>%
+#   summarise(across(Superfamily, .fns = paste_col), Score_sf = n()) %>% 
+#   left_join(pHHMdf_) %>%
+#   select(names(superfm_df)) %>%
+#   mutate(tab = "pHHM")
 
 
 # write outp -----
-superfm_df %>% mutate(tab = "Regex") %>% rbind(pHHMdf_) %>%
+superfm_df %>% mutate(tab = "Regex") %>% rbind(pHHMdf) %>%
   mutate(gene =  gsub("_[0-9]+_[0-9]+$","", transcript)) %>%
   write_rds(file = paste0(pub_dir, "/superfm_df.rds"))
 
