@@ -1,13 +1,16 @@
 import random
+import gzip
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-# python randomize_fasta.py conoserver_nucleic_californicus.fa output.fasta 100000 --paired_end --insert_size 150
-
 def read_fasta(file_path):
     try:
-        return list(SeqIO.parse(file_path, "fasta"))
+        if file_path.endswith(".gz"):
+            with gzip.open(file_path, "rt") as handle:
+                return list(SeqIO.parse(handle, "fasta"))
+        else:
+            return list(SeqIO.parse(file_path, "fasta"))
     except Exception as e:
         print(f"Error reading FASTA file: {e}")
         return []
@@ -72,7 +75,7 @@ def main(input_fasta, output_fasta, N, paired_end=False, insert_size=300):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Randomize sequences in a FASTA file by k-mer length.")
-    parser.add_argument("input_fasta", help="Input FASTA file")
+    parser.add_argument("input_fasta", help="Input FASTA (or gzipped FASTA) file")
     parser.add_argument("output_fasta", help="Output FASTA file")
     parser.add_argument("N", type=int, help="Number of sequences to randomize")
     parser.add_argument("--paired_end", action="store_true", help="Output paired-end FASTA files")
