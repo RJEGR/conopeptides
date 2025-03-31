@@ -213,10 +213,10 @@ OUT <- lapply(comb_list,
 
 OUT <- do.call(rbind, OUT)
 
+OUT <- OUT %>%
+  filter(PValue < 0.05)
 
-DF %>%
-  ggplot(aes(PValue)) + geom_histogram()
-
+write_rds(OUT, file = paste0(dir, "/glmLRT_multiple_contrast.rds"))
 
 # pre 
 
