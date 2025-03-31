@@ -45,7 +45,7 @@ datExpr <- round(datExpr)
 
 table(.colData$Diatery, .colData$Time)
 
-# Transform raw matrix to VST ----
+# (omit) Transform raw matrix to VST ----
 
 library(DESeq2)
 
@@ -95,7 +95,7 @@ g <- levels(.colData$design)
   
 y <- DGEList(counts=datExpr, group=g)
 
-design <- model.matrix(~g)
+# design <- model.matrix(~g)
 
 
 # Calculate dispersion ======
@@ -109,9 +109,7 @@ tTags <- topTags(lrt, n = NULL)
 
 result_table <- tTags$table
 
-# Run DE analysis
-
-sam_groups <- structure(levels(.colData$design), names = levels(.colData$LIBRARY_ID))
+# Run DE analysis ------
 
 create_pairs <- function(vec) {
   combn(vec, 2, simplify = FALSE)
@@ -125,52 +123,64 @@ print(combinations_vector)
 
 lapply(combinations_vector, function(x) unlist(strsplit(x, "-")))
 
-g <- unlist(strsplit(combinations_vector[1], "-"))
+# herence is where we apply the loop [] or lapply
+i <- 1
 
-sam_groups[sam_groups %in% g]
+gstr <- unlist(strsplit(combinations_vector[i], "-"))
+
+count <- datExpr
+
+colData <- .colData
 
 # continue here
 
-run_edgeR <- function(count, g, disp = 0.01) {
+run_edgeR <- function(count, gstr, colData, disp_value = NULL) {
   
- 
+  sam_gstr <- structure(levels(colData$design), names = levels(colData$LIBRARY_ID))
   
-  # filter samples from the contrast
+  sam_gstr <- sam_gstr[sam_gstr %in% gstr]
   
-  colnames(ex) %in% names(g)
-  
-  sel <- which(gstr != "X")
-  gstr <- gstr[sel]
-  ex <- as(count[sel], 'matrix')
-  
-  ex <- round(ex)
-  
-  ex <- round(ex)
-  
-  fl <- as.factor(gstr)
-  
-  # Performing EdgerR
-  
-  DGE = DGEList(counts = ex, group = fl)
-  DGE = calcNormFactors(DGE)
-  # DGE <- estimateDisp(DGE)
-  # DGE = estimateCommonDisp(DGE)
-  # DGE = estimateTagwiseDisp(DGE)
-  
-  # if(is.na(DGE$common.dispersion)) {
-  #   DGE$common.dispersion <- disp
-  #   DGE = estimateTagwiseDisp(DGE)
-  # } else {
-  #   DGE = estimateTagwiseDisp(DGE)
-  # }
-  # 
+  fl <- as.factor(sam_gstr)
   
   design <- model.matrix(~fl)
   
+  # filter samples from the contrast
   
-  et <- exactTest(DGE, pair = levels(fl), dispersion = disp)
+  keep_cols <- colnames(count) %in% names(sam_gstr)
+
+  # count <- round(count[,keep_cols])
   
-  tTags <- topTags(et, n = NULL)
+  by_count <- 1; by_freq <- 1
+  
+  keep_genes <- rowSums(count > by_count) >= by_freq
+  
+  sum(keep_genes)
+  
+  dim(count <- count[keep_genes,keep_cols ])
+  
+  colnames(count) <- sam_gstr
+  
+  count <- as(count, 'matrix')
+  
+  count <- round(count)
+
+  # Performing EdgerR
+  
+  DGE <- DGEList(counts = count, group = fl)
+  
+  DGE$common.dispersion <- disp_value[1]
+  
+  fit <- glmFit(DGE, design)
+  
+  lrt <- glmLRT(fit)
+  
+
+  
+  
+  # et <- exactTest(DGE, pair = levels(fl), dispersion = disp)
+  
+  
+  tTags <- topTags(lrt, n = NULL)
   
   result_table <- tTags$table
   
@@ -191,6 +201,22 @@ run_edgeR <- function(count, g, disp = 0.01) {
     select_at(vars(all_of(reorder_cols)))
   
 }
+
+
+DF <- run_edgeR(datExpr, gstr, colData, disp_value = mean(disp_value))
+
+comb_list <- strsplit(combinations_vector, "-")
+
+OUT <- lapply(comb_list, 
+  function(x) run_edgeR(datExpr, gstr = x, colData, disp_value = mean(disp_value)))
+
+
+OUT <- do.call(rbind, OUT)
+
+
+DF %>%
+  ggplot(aes(PValue)) + geom_histogram()
+
 
 # pre 
 
