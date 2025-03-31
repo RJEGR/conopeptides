@@ -26,10 +26,11 @@ require(ggplot2)
 
 # pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/SORTED_regex_pHMM_dir/" 
 
-pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/longest_orfs_dir/"
+# pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/longest_orfs_dir/"
+
+pepdir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/transdecoder.predict.conosorter_dir/"
 
 pepf <- list.files(pepdir, "pep$", full.names = T)
-
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
 
@@ -98,7 +99,7 @@ metrics_df <- function(f, stringSet = "DNA") {
 
 pepdf <- lapply(pepf, metrics_df, stringSet = "AA")
 pepdf <- do.call(rbind, pepdf)
-pepdf <- pepdf %>% mutate(stringSet = "B) Complete ORFs (Transcriptome)")
+pepdf <- pepdf %>% mutate(stringSet = "Complete ORFs")
 
 
 df <- lapply(f, metrics_df)
@@ -111,19 +112,20 @@ recode_to <- c(
   "spades_hisat_superDuper.fasta",
   "spades.fasta",
   "Merged_polyA_hisat_SuperDuper.fasta",
-  "MMseqs.fasta",
+  "Merged_clusters.fasta", # MMseqs.fasta
   "trinity_hisat_superDuper.fasta",
   "Trinity.fasta")
 
 recode_to <- structure(
   c(
-    "Spades-Lace (Hisat)", 
+    "Full-length Spades (Lace)", 
     "Spades (S)", 
-    "Concat-Lace T-S (Hisat-polA)", 
-    "MMseqs (T-S)",
-    "Trinity-Lace (Hisat)",
+    "Full-length T-S (Lace)", 
+    "Full-length T-S (Mmseq)",
+    "Full-length Trinity (Lace)",
     "Trinity (T)"), 
   names = recode_to)
+
 
 df <- mutate(df, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
@@ -136,32 +138,43 @@ df <- mutate(df, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 #   "SuperDuper_Trinity_regex_pHMM.pep",
 #   "Trinity_regex_pHMM.pep")
 
-recode_to <- c(
-  "spades_hisat_superDuper_longest_orfs.pep",
-  "spades_longest_orfs.pep",
-  "Merged_polyA_hisat_SuperDuper_longest_orfs.pep",
-  # "MMseqs_hisat_SuperDuper_regex_pHMM.pep",
-  "MMseqs_longest_orfs.pep",
-  "trinity_hisat_superDuper_longest_orfs.pep",
-  "Trinity_longest_orfs.pep")
+# recode_to <- c(
+#   "spades_hisat_superDuper_longest_orfs.pep",
+#   "spades_longest_orfs.pep",
+#   "Merged_polyA_hisat_SuperDuper_longest_orfs.pep",
+#   # "MMseqs_hisat_SuperDuper_regex_pHMM.pep",
+#   "MMseqs_longest_orfs.pep",
+#   "trinity_hisat_superDuper_longest_orfs.pep",
+#   "Trinity_longest_orfs.pep")
 
+
+recode_to <- c(
+  "Trinity.fasta.transdecoder.pep",  
+  "trinity_hisat_superDuper.fasta.transdecoder.pep",
+  "spades.fasta.transdecoder.pep", 
+  "spades_hisat_superDuper.fasta.transdecoder.pep",
+  "MMseqs.fasta.transdecoder.pep",
+  "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep")
 
 recode_to <- structure(
   c(
-    "Spades-Lace (Hisat)", 
+    "Trinity (T)", 
+    "Full-length Trinity (Lace)", 
     "Spades (S)", 
-    "Concat-Lace T-S (Hisat-polA)",
-    "MMseqs (T-S)",
-    "Trinity-Lace (Hisat)",
-    "Trinity (T)"), 
+    "Full-length Spades (Lace)", 
+    "Full-length T-S (Mmseq)", 
+    "Full-length T-S (Lace)"
+  ), 
   names = recode_to)
+
+
 
 pepdf <- mutate(pepdf, Assembly = dplyr::recode_factor(Assembly, !!!recode_to))
 
 unique(df$Assembly)
 unique(pepdf$Assembly)
 
-df <- df %>% mutate(stringSet = "A) DNA (Transcriptome)") %>% rbind(pepdf) %>% as_tibble()
+df <- df %>% mutate(stringSet = "DNA contigs") %>% rbind(pepdf) %>% as_tibble()
 
 write_rds(df, file = paste0(pub_dir, "/Contig_nx.rds"))
 

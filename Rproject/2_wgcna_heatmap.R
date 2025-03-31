@@ -1,5 +1,5 @@
 
-# Conotoxins
+# label Conotoxins
 
 library(WGCNA)
 library(flashClust)
@@ -10,7 +10,13 @@ rm(list = ls());
 
 if(!is.null(dev.list())) dev.off()
 
+pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
+
+
+DB <- read_rds(paste0(pub_dir, "/structured_db.rds"))
+
 
 .datTraits <- list.files(dir, pattern = "Manifest", full.names = T) 
 
@@ -19,7 +25,7 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
   # rename("LIBRARY_ID" = "Group2", "Population" = "Group3", "Condition" = "Group4") %>%
   mutate(datTraits = paste0(Diatery, "-", Time))
 
-datTraits <- table(.datTraits$LIBRARY_ID, .datTraits$Time)
+datTraits <- table(.datTraits$LIBRARY_ID, .datTraits$datTraits)
 
 # 
 # .datTraits <- .datTraits %>% 
@@ -35,15 +41,20 @@ f <- list.files(path = dir, pattern = "wgcna.input.rds", full.names = T)
 
 dim(datExpr <- readRDS(f))
 
-bwnnet_dir <- list.files(path = dir, pattern = "_wgcna", full.names = T)
 
-bwnet <- readRDS(paste0(bwnnet_dir, "/bwnet.rds"))
+bwnnet_dir <- paste0(dir, "/2025-03-25_wgcna/")
+
+bwnnet_f <- list.files(path = bwnnet_dir, pattern = "bwnet.rds", full.names = T)
+
+bwnet <- readRDS(bwnnet_f)
 
 bwmodules <- labels2colors(bwnet$colors)
 
 names(bwmodules) <- names(bwnet$colors)
 
-table(bwmodules)
+barplot(table(bwmodules))
+
+length(table(bwmodules))
 
 # reads <- colSums(datExpr)
 sum(keep <- colnames(datExpr) %in% names(bwmodules))
@@ -54,12 +65,71 @@ data.frame(reads, bwmodules) %>%
   as_tibble() %>% 
   group_by(bwmodules) %>% 
   summarise(n = n(), reads = sum(reads)) %>%
-  dplyr::rename('module' = 'bwmodules') -> stats
+  dplyr::rename('WGCNA' = 'bwmodules') -> stats
 
 
-as_tibble(bwmodules, rownames = "Transcript") %>% 
+as_tibble(bwmodules, rownames = "gene_id") %>% 
   dplyr::rename("WGCNA" = "value") %>% 
-  write_tsv(file = paste0(dir, "WGCNA.tsv"))
+  write_tsv(file = paste0(pub_dir, "/WGCNA.tsv"))
+
+str(unique(DB$gene_id)) # 66, 528 unique genes
+
+sum(sort(unique(DB$gene_id)) %in% sort(names(bwmodules)))
+
+WGCNADB <- read_tsv(paste0(pub_dir, "/WGCNA.tsv")) %>% right_join(DB)
+
+# split EGGnog by modules
+
+WGCNADB %>%
+  filter(COG_category != "-") %>%
+  select(protein_id, WGCNA, COG_category) %>%
+  mutate(COG_category = strsplit(COG_category, "")) %>%
+  unnest(COG_category) %>%
+  right_join(NOG.col, by = c("COG_category" = "EggNM.COG_category")) %>%
+  mutate(COG_category = paste0(COG_category, ", ", COG_name)) %>%
+  dplyr::count(COG_category, WGCNA, sort = T) %>%
+  group_by(COG_category) %>% mutate(frac = n/sum(n)) %>%
+  arrange(desc(frac)) %>%
+  mutate(COG_category = factor(COG_category, levels = unique(COG_category))) %>%
+  # mutate(facet = "A) Transcriptome") %>%
+  drop_na(WGCNA) %>%
+  ggplot(aes(y = WGCNA, x = COG_category, fill = frac)) +
+  # labs(y = "Nested Orthologous Gene Group (NOGS)", x = "Enrichment ratio (N transcripts/Total transcripts)") +
+  geom_tile() +
+  # scale_x_continuous(labels = scales::percent_format()) +
+  ggh4x::scale_y_dendrogram(hclust = hclust) +
+  theme_bw(base_size = 12, base_family = "GillSans") +
+  # xlim(0,0.4) +
+  theme(legend.position = "top", 
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    # panel.grid.major.x = element_blank(),
+    strip.background = element_rect(fill = 'grey95', color = 'white')) 
+     geom_text(data = data_text, 
+    aes(label = n), size = 3.5,
+    hjust = -0.1, vjust = 0, 
+    family = "GillSans", position = position_dodge(width = 1)) 
+
+# find toxins by modules
+# as datExp was filtered to low, some peptides was dropped during the Wgcna analysis, therefore, focus the analysis to conopeptides?
+
+conopep_module <- WGCNADB %>%
+  drop_na(tab) %>%
+  distinct(tab, Signalp_class, Superfamily, protein_id, WGCNA) %>%
+  filter(Signalp_class == "SP") %>%
+  # filter(is.na(WGCNA))
+  dplyr::count(WGCNA, sort = T) %>%
+  drop_na(WGCNA) %>%
+  mutate(n = paste0("sf: ",n,""))  %>% dplyr::rename("n_conopeptides" = "n")
+
+Thioredoxin_module <- WGCNADB %>%
+  filter(if_any(where(is.character), ~ grepl(pattern = 'Thioredoxin', x = .x, ignore.case = T))) %>%
+  distinct(COG_category, Preferred_name, protein_id, PFAMs, WGCNA) %>%
+  dplyr::count(WGCNA, sort = T) %>%
+  drop_na(WGCNA) %>%
+  mutate(n = paste0("pdi: ",n,"")) %>% dplyr::rename("n_pdi_domain" = "n")
 
 
 # Recalculate MEs with color labeLIBRARY_ID# Recalculate MEs with color labels
@@ -80,15 +150,16 @@ moduleTraitCor = cor(MEs, datTraits, use= "p")
 
 moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nrow(datTraits))
 
-moduleTraitCor %>% as_tibble(rownames = 'module') %>% 
-  pivot_longer(-module, values_to = 'moduleTraitCor') -> df1
+moduleTraitCor %>% as_tibble(rownames = 'WGCNA') %>% 
+  pivot_longer(-WGCNA, values_to = 'moduleTraitCor') -> df1
 
-moduleTraitPvalue %>% as_tibble(rownames = 'module') %>% 
-  pivot_longer(-module, values_to = 'corPvalueStudent') %>%
+moduleTraitPvalue %>% as_tibble(rownames = 'WGCNA') %>% 
+  pivot_longer(-WGCNA, values_to = 'corPvalueStudent') %>%
   right_join(df1) -> df1
 
 hclust <- hclust(dist(moduleTraitCor), "complete")
 
+plot(hclust)
 # up_df %>% distinct(transcript) %>% pull() -> updegs
 # down_df %>% distinct(transcript) %>% pull() -> dwndegs
 
@@ -96,46 +167,56 @@ bwmodules %>%
   as_tibble(., rownames = 'transcript') %>%
   # mutate(degs = ifelse(transcript %in% updegs, 'up', 
   # ifelse(transcript %in% dwndegs, 'down', ''))) %>%
-  dplyr::rename('module' = 'value') -> bwModuleCol
+  dplyr::rename('WGCNA' = 'value') -> bwModuleCol
 
-bwModuleCol %>% group_by(module) %>% dplyr::count(sort = T) %>% left_join(stats)
+bwModuleCol %>% group_by(WGCNA) %>% dplyr::count(sort = T) %>% left_join(stats)
 
-bwModuleCol %>% group_by(module) %>% dplyr::count(sort = T) -> bwModuleDF
+bwModuleCol %>% group_by(WGCNA) %>% dplyr::count(sort = T) -> bwModuleDF
 
-bwModuleDF %>% mutate(module = factor(module, levels = hclust$labels[hclust$order])) -> bwModuleDF
+bwModuleDF %>% mutate(WGCNA = factor(WGCNA, levels = hclust$labels[hclust$order])) -> bwModuleDF
 
-bwModuleDF %>% group_by(module) %>% mutate(pct = n / sum(n)) -> bwModuleDF
+bwModuleDF %>% group_by(WGCNA) %>% mutate(pct = n / sum(n)) -> bwModuleDF
+
+bwModuleDF
+
+bwModuleDF <- bwModuleDF %>% left_join(Thioredoxin_module) %>% left_join(conopep_module)
+
 
 df1 %>%
   mutate(star = ifelse(corPvalueStudent <.001, "***", 
     ifelse(corPvalueStudent <.01, "**",
       ifelse(corPvalueStudent <.05, "*", "")))) -> df1
 
-
-df1 <- df1 %>% separate(name, into = c("Population", "Assay"), sep = "-", remove = F)
+df1 <- df1 %>% separate(name, into = c("Diatery", "Time"), sep = "-", remove = F)
 
 lo = floor(min(df1$moduleTraitCor))
 up = ceiling(max(df1$moduleTraitCor))
 mid = (lo + up)/2
 
+time_levs <- c("Ctrl", "2", "4", "6")
+recode_time <- structure(c("Control", "2 months", "4 months", "6 months"), names = time_levs)
 
-# recode_to <- c("Desarrollo", "Crecimiento", "Calcificación", "Respiración")
-# recode_to <- structure(recode_to,names = colnames(datTraits))
+Diatery_levs <- c("Ctrl","Cam", "Lit", "Pol", "Mix")
+recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"), names = Diatery_levs)
 
-assay_levs <- c("F0", "F1", "Basal", "Regular", "Caotica", "Constante")
 
-y_labels <- bwModuleDF %>% mutate(label = paste0(module, " (", n,")")) %>% pull(label, name = module)
+y_labels <- bwModuleDF %>% 
+  mutate(label = paste0(WGCNA, " (", n,")")) %>% 
+  mutate(label = ifelse(!is.na(n_pdi_domain), paste0(label, " ", n_pdi_domain), label)) %>%
+  mutate(label = ifelse(!is.na(n_conopeptides), paste0(label, " ", n_conopeptides), label)) %>%
+  pull(label, name = WGCNA)
+
+# y_labels <- bwModuleDF %>% mutate(label = paste0(WGCNA, " (", n,")")) %>% pull(label, name = WGCNA)
 
 # library(ggh4x)
 
 df1 %>%
-  # mutate(Assay = factor(Assay, levels = assay_levs)) %>%
-  # mutate(name = recode_factor(name, !!!recode_to, .ordered = T)) %>%
+  mutate(Time = recode_factor(Time, !!!recode_time, .ordered = T)) %>%
+  mutate(Diatery = recode_factor(Diatery, !!!recode_Diatery, .ordered = T)) %>%
   mutate(moduleTraitCor = round(moduleTraitCor, 2)) %>%
   mutate(star = ifelse(star != '', paste0(moduleTraitCor, '(', star,')'), '')) %>%
-  ggplot(aes(y = module, x = Assay, fill = moduleTraitCor)) +
-  ggh4x::facet_nested(~ Population, scales = "free") +
-  # facet_grid(~ Population+Condition, scales = "free")
+  ggplot(aes(y = WGCNA, x = Time, fill = moduleTraitCor)) +
+  facet_grid(~ Diatery, scales = "free_x", space = "free_x") +
   # geom_tile(color = 'black', size = 0.5, width = 0.7) + 
   geom_raster() +
   geom_text(aes(label = star),  vjust = 0.5, hjust = 0.5, size= 1.5, family =  "GillSans") +
@@ -144,20 +225,6 @@ df1 %>%
     name = NULL) +
   ggh4x::scale_y_dendrogram(hclust = hclust, labels = NULL) +
   labs(x = '', y = 'Module') +
-  guides(
-    fill = guide_colorbar(barwidth = unit(3, "in"),
-      barheight = unit(0.1, "in"), label.position = "bottom",
-      alignd = 0.5,
-      title = "Trait correlation",
-      title.position  = "top",
-      title.theme = element_text(size = 10, family = "GillSans", hjust = 1),
-      ticks.colour = "black", ticks.linewidth = 0.35,
-      frame.colour = "black", frame.linewidth = 0.35,
-      label.theme = element_text(size = 10, family = "GillSans")),
-    
-    y.sec = ggh4x::guide_axis_manual(labels = y_labels, label_size = 8, label_family = "GillSans")
-    
-  ) +
   theme_classic(base_size = 12, base_family = "GillSans") +
   theme(legend.position = "top",
     strip.background = element_rect(fill = 'white', color = 'white'),
@@ -166,17 +233,32 @@ df1 %>%
     axis.text.y = element_text(hjust = 1),
     axis.ticks.length = unit(5, "pt")) -> p1 
 
+p1 <- p1 +   guides(
+  fill = guide_colorbar(barwidth = unit(1.5, "in"),
+    barheight = unit(0.1, "in"), label.position = "bottom",
+    alignd = 0.5,
+    title = "Trait correlation",
+    title.position  = "top",
+    title.theme = element_text(size = 10, family = "GillSans", hjust = 0),
+    ticks.colour = "black", ticks.linewidth = 0.35,
+    frame.colour = "black", frame.linewidth = 0.35,
+    label.theme = element_text(size = 10, family = "GillSans")),
+  
+  y.sec = ggh4x::guide_axis_manual(labels = y_labels, label_size = 8, label_family = "GillSans")
+  
+) 
+
 p1 <- p1 + theme(axis.ticks.x = element_blank(), 
-  axis.text.x = element_text(angle = 90, hjust = 1, size = 10),
+  axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
   # axis.text.x = element_blank(), 
   axis.line.x = element_blank())
 # 
 p1 <- p1 + theme(panel.spacing.x = unit(0, "mm"))
 
-p1
+# p1
 
 ggsave(p1, filename = 'ModuleTraitRelationship.png', 
-  path = dir, width = 5, height = 10, dpi = 1000, device = png)
+  path = pub_dir, width = 5.5, height = 10, dpi = 1000, device = png)
 
 
 

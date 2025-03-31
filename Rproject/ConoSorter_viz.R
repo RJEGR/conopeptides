@@ -15,11 +15,14 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir"
+# 
+
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/transdecoder.predict.conosorter_dir/"
 
 pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR"
 
-# cDNA is sorted initially using ConoSorter [31], 
+# if nucleotide mode:
+# cDNA is sorted initially using ConoSorter
 # which translates raw cDNA sequences into six reading frames and 
 # extracts sequences from the first start codon in each read to the first subsequent stop codon. 
 # The results generated two files, the Regex.tab file containing unambiguously identified amino acid sequences and 
@@ -124,67 +127,97 @@ DF <- do.call(rbind,DF)
 
 DF %>% dplyr::count(Method)
 
-recode_to <- c("Trinity",  
-  "SuperDuper_Trinity",
-  "spades", 
-  "SuperDuper_Spades",
-  "MMseqs",
-  "MMseqs_hisat_SuperDuper",
-  "Merged_hisat_SuperDuper",
-  "Merged_polyA_hisat_SuperDuper",
+recode_to <- c(
+  "Trinity.fasta.transdecoder",  
+  "trinity_hisat_superDuper.fasta.transdecoder",
+  "spades.fasta.transdecoder", 
+  "spades_hisat_superDuper.fasta.transdecoder",
+  "MMseqs.fasta.transdecoder",
   "Merged_polyA_hisat_SuperDuper.fasta.transdecoder")
 
+
+# recode_to <- c("Trinity",  
+#   "SuperDuper_Trinity",
+#   "spades", 
+#   "SuperDuper_Spades",
+#   "MMseqs",
+#   "MMseqs_hisat_SuperDuper",
+#   "Merged_hisat_SuperDuper",
+#   "Merged_polyA_hisat_SuperDuper",
+#   "Merged_polyA_hisat_SuperDuper.fasta.transdecoder")
+
 recode_to <- structure(
-  c("Trinity (T)", 
-    "Trinity-Lace (Hisat)",
+  c(
+    "Trinity (T)", 
+    "Full-length Trinity (Lace)", 
     "Spades (S)", 
-    "Spades-Lace (Hisat)", 
-    "MMseqs (T-S)",
-    "MMseqs-Lace T-S (Hisat)",
-    "Concat-Lace T-S (Hisat)",
-    "Concat-Lace T-S (Hisat-polA)",
-    "Concat-Lace T-S (Hisat-polA-transdecoder)"), 
+    "Full-length Spades (Lace)", 
+    "Full-length T-S (Mmseq)", 
+    "Full-length T-S (Lace)"
+  ), 
   names = recode_to)
 
 DF <- mutate(DF, Method = dplyr::recode_factor(Method, !!!recode_to))
 
 
+DF %>% dplyr::count(Method)
+
 # Number of orfs predicted (normalize to the total N of transcripts per transcriptome) -----
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/Nx_Metrics_dir/"
 
-seqs_f <- list.files(dir, "fasta$", full.names = T)
+seqs_f <- list.files(dir, ".pep$", full.names = T)
 
 contig_len <- function(f) {
   
   require(tidyverse)
   
-  recode_to <- c("Trinity.fasta",  
-    "trinity_hisat_superDuper.fasta",
-    "spades.fasta", 
-    "spades_hisat_superDuper.fasta",
-    "MMseqs.fasta",
-    "MMseqs_hisat_SuperDuper.fasta",
-    "Merged_hisat_SuperDuper.fasta",
-    "Merged_polyA_hisat_SuperDuper.fasta")
+  # recode_to <- c("Trinity.fasta",  
+  #   "trinity_hisat_superDuper.fasta",
+  #   "spades.fasta", 
+  #   "spades_hisat_superDuper.fasta",
+  #   "MMseqs.fasta",
+  #   "MMseqs_hisat_SuperDuper.fasta",
+  #   "Merged_hisat_SuperDuper.fasta",
+  #   "Merged_polyA_hisat_SuperDuper.fasta")
+  
+  recode_to <- c(
+    "Trinity.fasta.transdecoder.pep",  
+    "trinity_hisat_superDuper.fasta.transdecoder.pep",
+    "spades.fasta.transdecoder.pep", 
+    "spades_hisat_superDuper.fasta.transdecoder.pep",
+    "MMseqs.fasta.transdecoder.pep",
+    "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep")
+  
+  # recode_to <- structure(
+  #   c("Trinity (T)", 
+  #     "Trinity-Lace (Hisat)",
+  #     "Spades (S)", 
+  #     "Spades-Lace (Hisat)", 
+  #     "MMseqs (T-S)",
+  #     "MMseqs-Lace T-S (Hisat)",
+  #     "Concat-Lace T-S (Hisat)",
+  #     "Concat-Lace T-S (Hisat-polA)"), 
+  #   names = recode_to)
+  
   
   recode_to <- structure(
-    c("Trinity (T)", 
-      "Trinity-Lace (Hisat)",
+    c(
+      "Trinity (T)", 
+      "Full-length Trinity (Lace)", 
       "Spades (S)", 
-      "Spades-Lace (Hisat)", 
-      "MMseqs (T-S)",
-      "MMseqs-Lace T-S (Hisat)",
-      "Concat-Lace T-S (Hisat)",
-      "Concat-Lace T-S (Hisat-polA)"), 
+      "Full-length Spades (Lace)", 
+      "Full-length T-S (Mmseq)", 
+      "Full-length T-S (Lace)"
+    ), 
     names = recode_to)
   
-  DNA <- Biostrings::readDNAStringSet(f)
+  # DNA <- Biostrings::readDNAStringSet(f)
+  SEQS <- Biostrings::readAAStringSet(f)
   
-  contig_len <- length(Biostrings::readDNAStringSet(f))
+  contig_len <- length(SEQS)
   
   out <- data.frame(contig_len, Method = basename(f))
-  
   
   out <- mutate(out, Method = dplyr::recode_factor(Method, !!!recode_to))
   

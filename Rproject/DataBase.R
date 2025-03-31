@@ -5,6 +5,7 @@
 # LOAD ConoSorter results (from .transdecoder.pep query), including fields as hydrophobicity, PHMM/RegExp and family_class ()
 # LOAD, SignalP6 results, including protein_id (ID.p[0-9]+$)  and SP[sec/SPI] value (yet running ...)
 # LOAD sequence from Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep
+# LOAD paste0(pub_dir, "/WGCNA.tsv")
 # JOIN in the follow order:
 # 
 
