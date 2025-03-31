@@ -24,8 +24,8 @@ dim(COUNT <- read_rds(f))
 
 f <- list.files(path = dir, pattern = "Manifest", full.names = T)
 
-Manifest <- readr::read_tsv(f) %>%
-  mutate(Sample_group = gsub("_E","", Sample_group))
+Manifest <- readr::read_tsv(f) #%>%
+  # mutate(Sample_group = gsub("_E","", Sample_group))
 
 colData <- data.frame(LIBRARY_ID = factor(Manifest$LIBRARY_ID))
 
@@ -42,7 +42,7 @@ datExpr <- assay(dds)
 # 1) PCA ------
 
 
-PCA = prcomp(t(COUNT), center = T, scale. = T)
+PCA = prcomp(t(datExpr), center = T, scale. = F)
 
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 # percentVar <- round(PCA$sdev/sum(PCA$sdev)*100,1)
@@ -113,7 +113,7 @@ PCAdf %>%
     shape = 21, stroke = 1.5, fill = "white") +
   # geom_text( family = "GillSans", mapping = aes(label = label), size = 5) +
   ggrepel::geom_text_repel(family = "GillSans", mapping = aes(label = label), size = 5) +
-  ylim(-200, 200) + xlim(-400, 400) +
+  # ylim(-200, 200) + xlim(-400, 400) +
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
   # see::scale_color_pizza(name = "", reverse = T) +
@@ -128,6 +128,7 @@ PCAdf %>%
     # legend.spacing.y = unit(-1, 'mm')
   ) -> p
 
+p
 
 ggsave(p, filename = 'SAMPLE_PCA_FOR_PUB.png', path = pub_dir, width = 5, height = 5, device = png, dpi = 800)
 

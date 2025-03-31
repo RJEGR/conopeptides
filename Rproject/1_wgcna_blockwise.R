@@ -48,7 +48,7 @@ if (!gsg$allOK) {
 
 file_out <- gsub(".rds", ".wgcna.input.rds",f)
 
-write_rds(datExpr, file = file_out)
+# write_rds(datExpr, file = file_out)
 
 dim(datExpr <- read_rds(file_out))
 
@@ -69,13 +69,13 @@ sft <- pickSoftThreshold(datExpr,
   verbose = 5, 
   networkType = "unsigned")
 
-file_out <- gsub(".rds", paste0(dir, 'wgcna_Soft.',cor_method, '.rds'),f)
+file_out <- gsub(".rds", paste0(dir, '/wgcna_Soft.',cor_method, '.rds'),f)
 
-readr::write_rds(sft, file = file_out)
+# readr::write_rds(sft, file = file_out)
 
 # Continue here tomorrow
 
-# sft <- readr::read_rds(rds_f)
+sft <- readr::read_rds(file_out)
 
 soft_values <- abs(sign(sft$fitIndices[,3])*sft$fitIndices[,2])
 
@@ -130,14 +130,14 @@ setwd(wd)
 getwd()
 
 bwnet <- blockwiseModules(datExpr, 
-  maxBlockSize = 5000,
-  power = softPower, 
+  maxBlockSize = 2000,
+  power = 29, # softPower, 
   TOMType = "unsigned", 
   networkType = "unsigned",
-  minModuleSize = 30,
+  minModuleSize = 50,
   corType = "bicor",
   reassignThreshold = 0, 
-  mergeCutHeight = 0.25,
+  mergeCutHeight = 0.3,
   numericLabels = TRUE,
   saveTOMs = TRUE,
   saveTOMFileBase = "TOM-blockwise",

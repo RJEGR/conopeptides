@@ -36,6 +36,10 @@ COUNTS <- COUNTS %>% select_if(is.double) %>% as(., "matrix")
 
 rownames(COUNTS) <- rowNames
 
+file_out <- gsub(".matrix", ".rds",f)
+
+write_rds(COUNTS, file = file_out)
+
 # 1) Filter data by removing low-abundance genes ----
 
 by_count <- 1; by_freq <- 2
