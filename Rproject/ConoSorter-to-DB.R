@@ -10,7 +10,9 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir"
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/transdecoder.predict.conosorter_dir/"
+
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/complete_and_partial_cds_dir/Conosorter_dir/" <- omit
 
 pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR"
 
@@ -72,8 +74,10 @@ read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
     pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
     filter(Superfamily != "-") %>%
     mutate(Region = gsub("Superfamily ", "", Region)) %>%
+    mutate(Superfamily =  gsub("\\(.*?\\)", "", Superfamily)) %>% 
     group_by(Method, protein_id) %>%
     summarise(across(Superfamily, .fns = paste_col), Score_sf = n()) %>% 
+    # arrange(desc(Score_sf)) %>%
     left_join(DF1) %>%
     mutate(tab = "Regex")
   
@@ -128,6 +132,7 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
     pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
     filter(Superfamily != "-") %>%
     mutate(Region = gsub("Superfamily ", "", Region)) %>%
+    mutate(Superfamily =  gsub("\\(.*?\\)", "", Superfamily)) %>% 
     group_by(Method, protein_id) %>%
     summarise(across(Superfamily, .fns = paste_col), Score_sf = n()) %>% 
     left_join(DF1) %>%
@@ -137,8 +142,7 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
   
 }
 
-DB <- read_pHMM(pHHM_f) %>%
-  rbind(read_regex(Regex_f))
+DB <- read_pHMM(pHHM_f) %>% rbind(read_regex(Regex_f))
 
 DB %>% count(tab)
 

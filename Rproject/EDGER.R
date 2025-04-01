@@ -45,18 +45,18 @@ datExpr <- round(datExpr)
 
 table(.colData$Diatery, .colData$Time)
 
-# (omit) Transform raw matrix to VST ----
+# (omit) Transform raw matrix to VST and save ----
 
-library(DESeq2)
+# library(DESeq2)
 
-ddsFullCountTable <- DESeqDataSetFromMatrix(
-  countData = datExpr,
-  colData = .colData,
-  design = ~ 1 )
+# ddsFullCountTable <- DESeqDataSetFromMatrix(
+#   countData = datExpr,
+#   colData = .colData,
+#   design = ~ 1 )
 
-dds <- estimateSizeFactors(ddsFullCountTable) 
+# dds <- estimateSizeFactors(ddsFullCountTable) 
 
-dds <- estimateDispersions(dds)
+# dds <- estimateDispersions(dds)
 
 vst <- DESeq2::vst(datExpr) # vst if cols > 10 and varianceStabilizingTransformation if cols < 10
 
@@ -90,10 +90,11 @@ rbind(
 # creates edgeR object -----
 
 library(edgeR)
+# library(limma)
 
 g <- levels(.colData$design)
   
-y <- DGEList(counts=datExpr, group=g)
+# y <- DGEList(counts=datExpr, group=g)
 
 # design <- model.matrix(~g)
 
@@ -101,13 +102,34 @@ y <- DGEList(counts=datExpr, group=g)
 # Calculate dispersion ======
 
 # Tnsert this into the full data object and proceed:
-y$common.dispersion <- mean(disp_value)
-fit <- glmFit(y, design)
-lrt <- glmLRT(fit)
+# y$common.dispersion <- mean(disp_value)
+# fit <- glmFit(y, design)
+# lrt <- glmLRT(fit)
+# 
+# tTags <- topTags(lrt, n = NULL)
+# 
+# result_table <- tTags$table
 
-tTags <- topTags(lrt, n = NULL)
+# if bayes
 
-result_table <- tTags$table
+# 
+# fit <- lmFit(count, design)
+# 
+# contrast <- paste(levels(fl), collapse = '-')
+# 
+# cont.matrix <- makeContrasts(contrasts = contrast, levels = levels(fl))
+# 
+# fit2 <- contrasts.fit(fit, cont.matrix)
+# 
+# fit2 <- eBayes(fit2)
+# 
+# tT <- topTable(fit2, adjust="fdr", sort.by="B", 
+#   number = Inf) %>% 
+#   as_tibble(rownames = "ids") %>%
+#   mutate_at(vars(!matches("ids|P.Value|adj.P.Val")), 
+#     round, digits = 2)
+
+
 
 # Run DE analysis ------
 
@@ -126,11 +148,11 @@ lapply(combinations_vector, function(x) unlist(strsplit(x, "-")))
 # herence is where we apply the loop [] or lapply
 i <- 1
 
-gstr <- unlist(strsplit(combinations_vector[i], "-"))
-
-count <- datExpr
-
-colData <- .colData
+# gstr <- unlist(strsplit(combinations_vector[i], "-"))
+# 
+# count <- datExpr
+# 
+# colData <- .colData
 
 # continue here
 
@@ -170,18 +192,20 @@ run_edgeR <- function(count, gstr, colData, disp_value = NULL) {
   
   DGE$common.dispersion <- disp_value[1]
   
-  fit <- glmFit(DGE, design)
+  # fit <- glmFit(DGE, design)
+  # 
+  # lrt <- glmLRT(fit)
+  # 
+  # tTags <- topTags(lrt, n = NULL)
   
-  lrt <- glmLRT(fit)
   
+  # After adding disp_value run as below instead of glm
+  DGE = estimateTagwiseDisp(DGE)
+  
+  exact <- exactTest(DGE, pair = levels(fl), dispersion = disp_value[1])
+  
+  tTags <- topTags(exact, n = NULL)
 
-  
-  
-  # et <- exactTest(DGE, pair = levels(fl), dispersion = disp)
-  
-  
-  tTags <- topTags(lrt, n = NULL)
-  
   result_table <- tTags$table
   
   sampleA <- levels(fl)[1]
@@ -203,20 +227,20 @@ run_edgeR <- function(count, gstr, colData, disp_value = NULL) {
 }
 
 
-DF <- run_edgeR(datExpr, gstr, colData, disp_value = mean(disp_value))
+# DF <- run_edgeR(datExpr, gstr, colData, disp_value = mean(disp_value))
 
 comb_list <- strsplit(combinations_vector, "-")
 
 OUT <- lapply(comb_list, 
-  function(x) run_edgeR(datExpr, gstr = x, colData, disp_value = mean(disp_value)))
+  function(x) run_edgeR(datExpr, gstr = x, .colData, disp_value = mean(disp_value)))
 
 
 OUT <- do.call(rbind, OUT)
 
-OUT <- OUT %>%
-  filter(PValue < 0.05)
+OUT <- OUT %>% filter(PValue < 0.05)
 
-write_rds(OUT, file = paste0(dir, "/glmLRT_multiple_contrast.rds"))
+# write_rds(OUT, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds"))
+write_rds(OUT, file = paste0(dir, "/exactTest_multiple_contrast.rds"))
 
 # pre 
 

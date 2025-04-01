@@ -3,9 +3,12 @@
 # LOAD, eggnog_mapper.emapper.annotations.rds from long-orfs OR predicted peptide step
 #        These DB includes gene_id (keyid), protein_id (ID.p[0-9]+$) and annotation fields (GOs, PFAm, COGs, etc)
 # LOAD ConoSorter results (from .transdecoder.pep query), including fields as hydrophobicity, PHMM/RegExp and family_class ()
-# LOAD, SignalP6 results, including protein_id (ID.p[0-9]+$)  and SP[sec/SPI] value (yet running ...)
+# LOAD, SignalP6 results, including protein_id (ID.p[0-9]+$)  and SP[sec/SPI] value ()
+# LOAD Diamond blastp conosorter (include cols: ) 
+# LOAD Diamond blastp Tox-prot
 # LOAD sequence from Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep
 # LOAD paste0(pub_dir, "/WGCNA.tsv")
+
 # JOIN in the follow order:
 # 
 
@@ -41,7 +44,14 @@ signalp6_f <- list.files(pub_dir, pattern = "signalp6_Merged_polyA_hisat_SuperDu
 
 SIGNALPDB <- read_rds(signalp6_f)
 
-# 4) Fasta file
+# 4) Diamond (blastp conoServer and Tox-prot) -----
+blastp_f <- list.files(pub_dir, pattern = "diamond_blastp_sources.rds", full.names = T)
+
+# file.path(pub_dir, "diamond_blastp_sources.rds")
+
+BLASTPDB <- read_rds(blastp_f)
+
+# 5) Fasta file
 # bind gene_id, dna_seq, protein_id, pep_seq
 
 dna <- list.files(pub_dir, "Merged_polyA_hisat_SuperDuper.fasta$", full.names = T)
@@ -103,5 +113,11 @@ DB1 <- DB1 %>% left_join(SIGNALPDB)
 any(DB1$protein_id %in% SORTERDB$protein_id)
 
 DB1 <- DB1 %>% left_join(SORTERDB)
+
+any(DB1$protein_id %in% BLASTPDB$protein_id)
+
+DB1 <- DB1 %>% left_join(BLASTPDB)
+
+
 
 write_rds(DB1, file = paste0(pub_dir, "/structured_db.rds"))
