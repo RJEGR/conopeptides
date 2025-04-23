@@ -309,7 +309,7 @@ BUSCOdf %>%
   filter(!Status %in% c("Missing")) %>%
   mutate(Status = dplyr::recode_factor(Status, !!!labels)) %>%
   mutate(odb = factor(odb, levels = my_sp_lev)) %>%
-  group_by(Method, odb) %>% mutate(percentage = n/sum(n)) %>%
+  group_by(Method, odb) %>% mutate(percentage = n/sum(n)) %>% view()
   ggplot(aes(x = percentage, y = group, fill = facet)) +
   facet_grid(odb~Status, scales = "free_x") +
   # ggh4x::facet_nested(odb~Status, scales = "free_x", switch = "x", ) +

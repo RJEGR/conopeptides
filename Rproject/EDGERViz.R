@@ -47,7 +47,7 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 # Count the time of both test coincide
 
 # rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(sampleA, sampleB, ids) %>% tally(n)
-rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(test) 
+# rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(test) 
 
 RES <- read_rds(paste0(dir, "/exactTest_multiple_contrast.rds")) %>% 
   filter(FDR < 0.05 & abs(logFC) > 2) %>%
@@ -80,11 +80,11 @@ CONOPEPDB <- DB %>% drop_na(tab) %>%
 
 CONOPEPDB %>% distinct(Region)
 
-CONOPEPDB %>% distinct(Superfamily) %>% view()
+CONOPEPDB %>% distinct(Superfamily) 
 
 str(query_genes <- CONOPEPDB %>% distinct(gene_id) %>% pull())
 
-RES <- RES %>% filter(gene_id %in% query_genes) # 1496 conopeptides with selected region
+RES <- RES %>% filter(gene_id %in% query_genes) # XXX conopeptides with selected region
 
 nrow(RES %>% distinct(gene_id)) # 806 conopeptide DEGs
 

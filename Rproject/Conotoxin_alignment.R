@@ -1,3 +1,17 @@
+# Dataviz of mafft outputs, including
+# mafft conopeptides.pep > conopeptides_default.aln
+# mafft --maxiterate 1000 --localpair  conopeptides.pep > conopeptides_localpair.aln
+# mafft --maxiterate 1000 --globalpair  conopeptides.pep > conopeptides_localpair.aln
+
+# Additionaly, try directly decipher to:
+## alignment in order to detect sequence homology
+### aling, clusterize and find chimera
+### https://www2.decipher.codes/Homology.html
+## analyze phylogenetics
+
+
+# exit -----
+
 # transcriptome conopeptides wranglin
 
 dir <- "~/Documents/GitHub/conopeptides/05.Prediction/"

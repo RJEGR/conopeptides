@@ -30,7 +30,7 @@ which_cols <- c("Superfamily (Signal)", "Superfamily (Pro-region)", "Superfamily
 paste_col <- function(x) { 
   x <- x[!is.na(x)] 
   x <- unique(sort(x))
-  x <- paste(x, sep = '-', collapse = '-')
+  x <- paste(x, sep = '_', collapse = '_')
 }
 
 read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
@@ -42,12 +42,15 @@ read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
     mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
     dplyr::rename("Protein_width"="# A.A", "Cys_number" = "# Cysteine(s)") %>%
     dplyr::rename("Score_sf"="Score Superfamily", "Score_class" = "Score Class") %>%
-    dplyr::rename("seq"="Protein Sequence")
+    dplyr::rename("seq"="Protein Sequence") %>%
+    mutate(Conflict = Score_sf)
   
   protein_id <- DF %>% pull(ID)
   protein_id <- gsub("_[0-9]+_[0-9]+$","", protein_id)
   
   DF <- cbind(data.frame(protein_id), DF) %>% mutate(Method = gsub("_Regex.tab", "", Method)) %>% as_tibble()
+  
+  Conflictdf <- DF %>% filter(grepl("CONFLICT", Conflict)) %>% distinct(protein_id, Conflict)
   
   # Filter step as Borghie et al.
   
@@ -59,12 +62,12 @@ read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
     mutate(Score_class = gsub("[^0-9.-]", "", Score_class))
   
   
-  DF1 <- DF %>% select(contains(c("protein_id","Method", "Score_sf","Superfamily ("))) %>%
+  DF1 <- DF %>% select(contains(c("protein_id","Method", "Score_sf","Cys_number","Superfamily ("))) %>%
     # filter(Score_sf > 0) %>% # Score_sf > 0 == Superfamily != "-"
     pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
     filter(Superfamily != "-") %>%
     mutate(Region = gsub("Superfamily ", "", Region)) %>%
-    group_by(Method, protein_id) %>%
+    group_by(Method, protein_id, Cys_number) %>%
     summarise(across(Region,.fns = paste_col), Score_sf = n()) %>% ungroup()
   
   
@@ -81,6 +84,8 @@ read_regex <- function(f, Hydrophobicity_val = 60, pwidth_val = 50) {
     left_join(DF1) %>%
     mutate(tab = "Regex")
   
+  OUT <- OUT %>% left_join(Conflictdf)
+  
   return(OUT)
   
   
@@ -96,12 +101,15 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
     dplyr::rename("Hydrophobicity"="% Hydrophobicity (Signal)", "ID" = "Read Name") %>%
     mutate(Hydrophobicity = gsub("%", "", Hydrophobicity), Hydrophobicity = as.double(Hydrophobicity)) %>%
     dplyr::rename("Protein_width"="# A.A", "Cys_number" = "# Cysteine(s)") %>%
-    dplyr::rename("E_value"="E-value Superfamily")
+    dplyr::rename("E_value"="E-value Superfamily") %>%
+    mutate(Conflict = E_value)
   
   protein_id <- DF %>% pull(ID)
   protein_id <- gsub("_[0-9]+_[0-9]+$","", protein_id)
   
   DF <- cbind(data.frame(protein_id), DF) %>% mutate(Method = gsub("_pHMM.tab", "", Method)) %>% as_tibble()
+  
+  Conflictdf <- DF %>% filter(grepl("CONFLICT", Conflict)) %>% distinct(protein_id, Conflict)
   
   DF <- DF %>% 
     filter(Hydrophobicity > Hydrophobicity_val) %>%
@@ -118,12 +126,12 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
   #   mutate(tab = "Regex")
   # 
   
-  DF1 <- DF %>% select(contains(c("protein_id","Method","Superfamily ("))) %>%
+  DF1 <- DF %>% select(contains(c("protein_id","Method", "Cys_number","Superfamily ("))) %>%
     # filter(Score_sf > 0) %>% # Score_sf > 0 == Superfamily != "-"
     pivot_longer(cols = all_of(which_cols), names_to = "Region", values_to = "Superfamily") %>%
     filter(Superfamily != "-") %>%
     mutate(Region = gsub("Superfamily ", "", Region)) %>%
-    group_by(Method, protein_id) %>%
+    group_by(Method, protein_id, Cys_number) %>%
     summarise(across(Region,.fns = paste_col), Score_sf = n()) %>% ungroup()
   
   
@@ -138,13 +146,15 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
     left_join(DF1) %>%
     mutate(tab = "pHMM")
   
+  OUT <- OUT %>% left_join(Conflictdf)
+  
   return(OUT)
   
 }
 
 DB <- read_pHMM(pHHM_f) %>% rbind(read_regex(Regex_f))
 
-DB %>% count(tab)
+DB %>% count(Superfamily, tab, Conflict) %>% view()
 
 outName <- gsub("_Regex.tab|_pHMM.tab", "", basename(Regex_f))
 

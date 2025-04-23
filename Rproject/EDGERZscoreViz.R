@@ -36,7 +36,9 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 
 RES <- read_rds(paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds")) %>%  filter(FDR < 0.05 & abs(logFC) > 2)
 
-count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
+.count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
+
+count_vst <- .count_vst
 
 .colData <- list.files(dir, pattern = "Manifest", full.names = T) 
 
@@ -48,38 +50,84 @@ count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
 
 
 
-# Match only conopeptides
-Which_regions <- c("(Mature)","(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)")
+# As ORFs include exclusively peptides with start and stop codon. Considere include all classes of regions
 
-CONOPEPDB <- DB %>% drop_na(tab) %>% 
-  # dplyr::count(Signalp_class)
-  filter(Signalp_class == "SP") %>%
-  filter(Region %in% Which_regions)
+Which_regions <- c("(Mature)","(Mature)_(Pro-region)", "(Mature)_(Pro-region)_(Signal)")
 
-# recode peptides
-recode_peptide <- structure(c("Mature","Propeptide", "Precursor"), names = c("(Mature)", "(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)"))
+Which_regions <- c(Which_regions, "(Mature)_(Signal)","(Pro-region)","(Pro-region)_(Signal)","(Signal)")
 
-CONOPEPDB <- CONOPEPDB %>% 
-  mutate(Region = recode_factor(Region, !!!recode_peptide, .ordered = T)) 
+DB %>% drop_na(tab) %>% filter(Signalp_class == "SP") %>% count(Region, sort = T)
 
-CONOPEPDB %>% distinct(Region, Superfamily)
+DB %>% drop_na(tab) %>% filter(Signalp_class == "SP") %>% filter(Region %in% Which_regions) -> CONOPEPDB
 
+CONOPEPDB %>% drop_na(tab) %>% filter(Signalp_class == "SP") %>% count(Region, sort = T)
+
+# recode_peptide <- structure(c("Mature","Propeptide", "Precursor",), names = Which_regions)
+
+# CONOPEPDB <- CONOPEPDB %>% mutate(Region = recode_factor(Region, !!!recode_peptide, .ordered = T)) 
+
+CONOPEPDB %>% count(Superfamily, sort = T)
 
 RES %>% distinct(gene_id)
 
 str(query_genes <- RES %>% distinct(gene_id) %>% left_join(CONOPEPDB) %>% distinct(gene_id) %>% pull())
 
 CONOPEPDB %>% 
-  select(gene_id, Region, Superfamily,tab, conoserver_protein, uniprotkb_toxprot) %>%
-  right_join(RES) %>%
+  select(gene_id, Region, Superfamily,tab, Conflict, conoserver_protein, uniprotkb_toxprot) %>%
+  right_join(RES) %>% view()
   write_tsv(file = paste0(pub_dir, "glmLRT_multiple_contrast_ctrl_and_treatments_annot_peptides.tsv"))
   
 dim(count_vst <- count_vst[rownames(count_vst) %in% query_genes,])
 
 # agglomerate gene_matrix by same superfamily (not!! because gene profile going to be masked, just use for previz purpose )
 
-CONOPEPDB %>% count(Superfamily, sort = T)
+barvizA <- CONOPEPDB %>% 
+  count(Superfamily, tab, sort = T)
 
+barvizB <- .count_vst %>%
+  as_tibble(rownames = "gene_id") %>%
+  left_join(distinct(CONOPEPDB, Superfamily, gene_id, tab)) %>%
+  group_by(Superfamily, tab) %>%
+  summarise_at(vars(all_of(colnames(.count_vst))), sum) %>% ungroup() 
+
+
+
+plotdf <- barvizB %>% 
+  pivot_longer(cols = all_of(colnames(.count_vst)), values_to = 'fill', names_to = "LIBRARY_ID") %>%
+  left_join(.colData, by = "LIBRARY_ID") %>%
+  group_by(Superfamily,tab) %>%
+  summarise(Treads = sum(fill), Mean = mean(fill), sd = sd(fill)) %>%
+  left_join(barvizA) %>%
+  drop_na(Superfamily) %>%
+  mutate(x = Treads) %>% ungroup() %>%
+  arrange(x) %>% mutate(Superfamily = factor(Superfamily, levels = unique(Superfamily))) %>%
+  mutate(label = paste0("(", n,")"))
+
+p <- plotdf %>% 
+  ggplot(aes(y = Superfamily, x = x)) +
+  # facet_grid(~ tab, scales = "free_x", switch = "y") +
+  geom_col(aes(fill = tab)) +
+  scale_x_continuous(labels = scales::comma_format(scale = 0.001, suffix = "M")) +
+  theme_bw(base_size = 12, base_family = "GillSans") +
+  scale_fill_grey("") +
+  theme(legend.position = "top", 
+    legend.key.width = unit(0.2, "cm"),
+    legend.key.height = unit(0.12, "cm"),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    # panel.grid.major.x = element_blank(),
+    strip.background = element_rect(fill = 'grey95', color = 'white')) +
+  geom_text(aes(label = label), size = 1.5,
+    hjust = -0.1, vjust = 0, 
+    family = "GillSans", position = position_dodge(width = 1)) 
+
+p
+
+ggsave(p, filename = 'Superfamilies.png', path = pub_dir, width = 7, height = 5, device = png, dpi = 500)
+
+  
+ 
 # nrow(.count <- count_vst %>% 
 #   as_tibble(rownames = "gene_id") %>%
 #   left_join(distinct(CONOPEPDB, Superfamily, gene_id)) %>% 

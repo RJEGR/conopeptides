@@ -121,3 +121,46 @@ DB1 <- DB1 %>% left_join(BLASTPDB)
 
 
 write_rds(DB1, file = paste0(pub_dir, "/structured_db.rds"))
+
+
+# DB1 <- read_rds(paste0(pub_dir, "/structured_db.rds"))
+
+DB1 %>%  drop_na(tab) %>% write_tsv(paste0(pub_dir, "/conopeptides.tsv"))
+
+# AA
+
+seqs <- DB1 %>% 
+  drop_na(tab) %>% 
+  filter(Signalp_class == "SP") %>%
+  mutate(pep_seq = gsub("[*]$", "", pep_seq)) %>%
+  pull(pep_seq, name = protein_id) 
+
+seqs <- Biostrings::AAStringSet(seqs)
+
+
+Biostrings::writeXStringSet(seqs, file.path(pub_dir, "conopeptides.pep"))
+
+# DNA
+
+
+seqs <- DB1 %>% 
+  drop_na(tab) %>% 
+  filter(Signalp_class == "SP") %>%
+  distinct(dna_seq, gene_id) %>%
+  # mutate(pep_seq = gsub("[*]$", "", pep_seq)) %>%
+  pull(dna_seq, name = gene_id) 
+
+seqs <- Biostrings::DNAStringSet(seqs)
+
+
+Biostrings::writeXStringSet(seqs, file.path(pub_dir, "conopeptides.fasta"))
+
+
+# 
+# library(msa)
+# 
+# align <- msa::msa(seqs, method = "Muscle")
+# 
+# .align <- msaConvert(align)$seq
+# 
+# DECIPHER::BrowseSeqs(DNAStringSet(.align))
