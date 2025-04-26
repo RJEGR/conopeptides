@@ -3,6 +3,7 @@
 # LOAD, eggnog_mapper.emapper.annotations.rds from long-orfs OR predicted peptide step
 #        These DB includes gene_id (keyid), protein_id (ID.p[0-9]+$) and annotation fields (GOs, PFAm, COGs, etc)
 # LOAD ConoSorter results (from .transdecoder.pep query), including fields as hydrophobicity, PHMM/RegExp and family_class ()
+# LOAD conodictor (cross-check)
 # LOAD, SignalP6 results, including protein_id (ID.p[0-9]+$)  and SP[sec/SPI] value ()
 # LOAD Diamond blastp conosorter (include cols: ) 
 # LOAD Diamond blastp Tox-prot
@@ -32,13 +33,17 @@ mapper_f <- list.files(path = pub_dir, pattern = "eggnog_mapper.emapper.annotati
 
 MAPPERDB <- read_rds(mapper_f) %>% select_at(vars(contains(eggNOG_cols), starts_with("KEGG"))) 
 
-  
-# 2) CONOSORTER -----
+
+# Conopeptide annotation
+# 2.1) CONOSORTER -----
 
 cnsrtr_f <- list.files(path = pub_dir, pattern = "ConoSorter_regex_pHMM.rds", full.names = T)
 
 SORTERDB <- read_rds(cnsrtr_f)
+# 2.2 CONODICTOR ------
 
+cndctr_f <- file.path(pub_dir, "Conodictor2.rds")
+DICTORDB <- read_rds(cndctr_f)
 # 3) SIGNALp -----
 signalp6_f <- list.files(pub_dir, pattern = "signalp6_Merged_polyA_hisat_SuperDuper_transdecoder.rds", full.names = T)
 

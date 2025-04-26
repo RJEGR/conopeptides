@@ -17,8 +17,10 @@ fasta=$1
 left=$2
 right=$3
 
+
 output=${fasta%.*}_transrate_dir
 
 transrate --assembly $fasta --left $left --right $right --threads $SLURM_NPROCS --output $output
 
 exit
+
