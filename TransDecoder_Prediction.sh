@@ -125,23 +125,27 @@ module load conda-2024
 
 # 3)
 
-if [ ! -f "eggnog_mapper.chkp" ]; then
+eggnog_mapper=${bs}_eggnog_mapper
 
-    emapper.py -i $QUERY --itype proteins --cpu $SLURM_NPROCS --data_dir /LUSTRE/bioinformatica_data/genomica_funcional/rgomez/Trinotate/TRINOTATE_DB//EGGNOG_DATA_DIR -o eggnog_mapper --override
+outfmt_evidence=${bs}_blastp_evidence.hits
 
-    touch "eggnog_mapper.chkp"
+
+if [ ! -f "${bs}.eggnog_mapper.chkp" ]; then
+
+    emapper.py -i $QUERY --itype proteins --cpu $SLURM_NPROCS --data_dir /LUSTRE/bioinformatica_data/genomica_funcional/rgomez/Trinotate/TRINOTATE_DB//EGGNOG_DATA_DIR -o $eggnog_mapper --override
+
+    touch "${bs}.eggnog_mapper.chkp"
 
 else
     echo "Emapper already exists."
 fi
 
-cat eggnog_mapper.emapper.hits $output1 $output2 > blastp_evidence.hits
+cat ${eggnog_mapper}.emapper.hits $output1 $output2 > $outfmt_evidence
 
-outfmt_file=blastp_evidence.hits
 
 if [ ! -f "${bs}.TransDecoder.homology.Predict.chkp" ]; then
 
-    call="TransDecoder.Predict -t $FILE --cpu $SLURM_NPROCS --retain_blastp_hits $outfmt_file --output_dir $output_dir"
+    call="TransDecoder.Predict -t $FILE --cpu $SLURM_NPROCS --retain_blastp_hits $outfmt_evidence --output_dir $output_dir"
     
     #echo $call
     

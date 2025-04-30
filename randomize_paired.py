@@ -24,7 +24,7 @@ def generate_random_sequence(reference_sequences, insert_size):
 
 def create_paired_end_reads(sequence, insert_size):
     """Creates forward and reverse paired-end reads."""
-    half_size = insert_size // 2
+    half_size = insert_size
     
     if len(sequence) < insert_size:
         raise ValueError("Sequence is shorter than the insert size.")

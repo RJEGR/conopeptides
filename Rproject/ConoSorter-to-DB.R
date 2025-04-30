@@ -10,7 +10,7 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/transdecoder.predict.conosorter_dir/"
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/ConoSorter_dir/Conosorter_for_pub_dir/"
 
 # dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/complete_and_partial_cds_dir/Conosorter_dir/" <- omit
 
@@ -111,10 +111,19 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
   
   Conflictdf <- DF %>% filter(grepl("CONFLICT", Conflict)) %>% distinct(protein_id, Conflict)
   
+  # two steps clean strings
+  DF <- DF %>% mutate(E_value =  gsub("!!CONFLICT!!", "", E_value))
+  
+  DF <- DF %>% mutate(E_value =  gsub("[()]", "", E_value))
+
+  DF <- DF %>% mutate(E_value = as.numeric(E_value))
+  
+
+  
   DF <- DF %>% 
+    filter(as.numeric(E_value) < eval) %>% # omit pval filtering
     filter(Hydrophobicity > Hydrophobicity_val) %>%
-    filter(Protein_width >= pwidth_val) %>%
-    filter(as.numeric(E_value) < eval)
+    filter(Protein_width >= pwidth_val)
 
   # DF %>% 
   #   select(contains(c("protein_id","Method", "Score_sf","Superfamily ("))) %>%
@@ -152,9 +161,9 @@ read_pHMM <- function(f,  Hydrophobicity_val = 60, pwidth_val = 50, eval = 0.05)
   
 }
 
-DB <- read_pHMM(pHHM_f) %>% rbind(read_regex(Regex_f))
+DB <- read_pHMM(pHHM_f) %>% rbind(read_regex(Regex_f)) %>% ungroup()
 
-DB %>% count(Superfamily, tab, Conflict) %>% view()
+DB %>% count(tab)
 
 outName <- gsub("_Regex.tab|_pHMM.tab", "", basename(Regex_f))
 

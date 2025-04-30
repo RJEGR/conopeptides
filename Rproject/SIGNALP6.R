@@ -48,7 +48,7 @@ DF %>%
   dplyr::count(Method)
 
 DF %>% 
-  filter(Prediction == "SP") %>%
+  filter(Signalp_class == "SP") %>%
   ggplot(aes(Signal_peptide_probs, color = Method, fill = Method)) + 
   # geom_density()
   stat_ecdf(linewidth = 1, alpha = 0.5)

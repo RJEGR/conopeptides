@@ -9,6 +9,39 @@
 ### https://www2.decipher.codes/Homology.html
 ## analyze phylogenetics
 
+library(tidyverse)
+
+rm(list = ls())
+
+if(!is.null(dev.list())) dev.off()
+
+options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
+
+
+pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+
+dna <- list.files(pub_dir, "conopeptides.fasta$", full.names = T)
+
+pep <- list.files(pub_dir, "conopeptides.pep$", full.names = T)
+
+# dna <- Biostrings::readDNAStringSet(dna)
+pep <- Biostrings::readAAStringSet(pep)
+
+clusters <- DECIPHER::Clusterize(pep,
+  cutoff=0.5, # < 50% distant
+  minCoverage=0.5, # > 50% coverage
+  processors=NULL) # use all CPUs
+
+barplot(sort(table(clusters)))
+
+clustersdf <- clusters %>% as_tibble(rownames = "protein_id")
+
+clustersdf <- clustersdf %>% mutate(cluster = paste0("cluster_", cluster))
+
+clustersdf %>% count(cluster, sort = T) %>% filter(n == 1)
+
+data.frame(pep) %>% as_tibble(rownames = "protein_id") %>% left_join(clustersdf) %>% filter(cluster == 2143) %>% view()
+
 
 # exit -----
 
