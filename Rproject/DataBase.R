@@ -9,7 +9,7 @@
 # LOAD Diamond blastp Tox-prot
 # LOAD sequence from Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep
 # LOAD paste0(pub_dir, "/WGCNA.tsv")
-
+# For conotoxin DB, generate a clustering-sequence label using DECIPHER::clustering
 # JOIN in the follow order:
 # 
 
@@ -178,17 +178,14 @@ sum(DB1$protein_id %in% PEPTIDESDB$protein_id)/nrow(PEPTIDESDB)
 
 sum(DB1$protein_id %in% BLASTPDB$protein_id)
 
+# Outpts =====
+
 write_rds(DB1, file = paste0(pub_dir, "/structured_db.rds"))
 
-PEPTIDESDB %>% write_tsv(paste0(pub_dir, "/conopeptides.tsv"))
-
-
-PEPTIDESDB %>% count(Signalp_class, prediction_tool)
 
 # AA
 
-
-seqs <- PEPTIDESDB %>% 
+pepseqs <- PEPTIDESDB %>% 
   left_join(seqdf) %>%
   drop_na(prediction_tool) %>% 
   # filter(Signalp_class == "SP") %>%
@@ -201,9 +198,10 @@ seqs <- PEPTIDESDB %>%
   mutate(pep_seq = gsub("[*]$", "", pep_seq)) %>%
   pull(pep_seq, name = protein_id) 
   
-seqs <- Biostrings::AAStringSet(seqs)
+pepseqs <- Biostrings::AAStringSet(pepseqs)
 
-Biostrings::writeXStringSet(seqs, file.path(pub_dir, "conopeptides.pep"))
+Biostrings::writeXStringSet(pepseqs, file.path(pub_dir, "conopeptides.pep"))
+
 
 # DNA
 
@@ -228,11 +226,41 @@ seqs <- DB1 %>%
 
 seqs <- Biostrings::DNAStringSet(seqs)
 
-
 Biostrings::writeXStringSet(seqs, file.path(pub_dir, "conopeptides.fasta"))
+
+# ===== Prior to save peptide DB, create a clusters
+
+clusters <- DECIPHER::Clusterize(pepseqs,
+  cutoff=0.5, # < 50% distant
+  minCoverage=0.5, # > 50% coverage
+  processors=NULL) # use all CPUs
+
+barplot(sort(table(clusters)))
+
+clustersdf <- clusters %>% as_tibble(rownames = "protein_id")
+
+clustersdf <- clustersdf %>% mutate(cluster = paste0("seqgroup_", cluster))
+
+clustersdf <- clustersdf %>% mutate(protein_id =  sapply(strsplit(protein_id, "[|]"), `[`, 1))
 
 
 # 
+# clustersdf <- data.frame(pepseqs) %>% 
+#   as_tibble(rownames = "protein_id") %>% 
+#   left_join(clustersdf) %>%
+#   select(-protein_id) %>%
+#   dplyr::rename("pep_seq" = "pepseqs")
+
+PEPTIDESDB %>% 
+  left_join(seqdf) %>%
+  left_join(clustersdf) %>% 
+  write_tsv(paste0(pub_dir, "/conopeptides.tsv"))
+
+PEPTIDESDB %>% count(Signalp_class, prediction_tool)
+
+
+# Exit
+
 # library(msa)
 # 
 # align <- msa::msa(seqs, method = "Muscle")

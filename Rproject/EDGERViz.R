@@ -50,7 +50,7 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 # rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(test) 
 
 RES <- read_rds(paste0(dir, "/exactTest_multiple_contrast.rds")) %>% 
-  filter(FDR < 0.05 & abs(logFC) > 2) %>%
+  # filter(FDR < 0.05 & abs(logFC) > 2) %>%
   dplyr::rename("gene_id" = "ids") %>%
   mutate(sign = sign(logFC)) %>%
   mutate(sampleX = ifelse(sign == 1, sampleA, sampleB))
@@ -59,7 +59,7 @@ RES <- read_rds(paste0(dir, "/exactTest_multiple_contrast.rds")) %>%
 
 RES %>% dplyr::count(sampleX, sort = T)
 
-RES %>% dplyr::count(sampleA, sampleB, sort = T) %>% view()
+RES %>% dplyr::count(sampleA, sampleB, sort = T) 
 
 # count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
 
@@ -73,20 +73,24 @@ RES %>% dplyr::count(sampleA, sampleB, sort = T) %>% view()
 
 # Match only conopeptides (Precursor and Pro-peptide and mature)
 
-CONOPEPDB <- DB %>% drop_na(tab) %>% 
-  # dplyr::count(Signalp_class)
+DB %>% 
   filter(Signalp_class == "SP") %>%
-  filter(Region %in% c("(Mature)","(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)"))
+  count(prediction_tool)
 
-CONOPEPDB %>% distinct(Region)
+CONOPEPDB <- DB %>% 
+  filter(Signalp_class == "SP") %>%
+  drop_na(prediction_tool) 
+  # dplyr::count(Signalp_class)
+  # filter(Region %in% c("(Mature)","(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)"))
 
-CONOPEPDB %>% distinct(Superfamily) 
 
-str(query_genes <- CONOPEPDB %>% distinct(gene_id) %>% pull())
+str(query_genes <- CONOPEPDB %>% distinct(gene_id) %>% pull()) # 3514 putative conopeptide genes
 
-RES <- RES %>% filter(gene_id %in% query_genes) # XXX conopeptides with selected region
+sum(query_genes %in% RES$gene_id) # 2110 as EDGE.R remove low expressed transcripts
 
-nrow(RES %>% distinct(gene_id)) # 806 conopeptide DEGs
+RES <- RES %>% filter(gene_id %in% query_genes) 
+
+nrow(RES %>% distinct(gene_id)) # 2110 putative conopeptides (not DEGs filtered yet)
 
 RES %>%
   ggplot(aes(FDR)) + 
@@ -170,11 +174,24 @@ DataViz <- rbind(
   polypdf,
   Mixdf)
 
+
 # PLOT DEGS (summary) -----
-DataViz <- polypdf
 
 # Omit by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
 DataViz <- DataViz %>% filter(sampleX != "Ctrl")
+
+DataViz %>%
+  ggplot(aes(FDR)) + 
+  geom_histogram()
+
+nrow(DataViz %>% distinct(gene_id)) # 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
+
+write_rds(DataViz, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds"))
+
+
+# Exit ------
+
+DataViz <- polypdf
 
 
 # global view of changes in expression :
@@ -182,6 +199,7 @@ DataViz <- DataViz %>% filter(sampleX != "Ctrl")
 DataViz %>% 
   dplyr::count(sam_group, sampleA, sampleB, sampleX) %>%
   mutate(sampleX = ifelse(sampleX == sampleA, paste0(sampleA, " (", sampleB,")"), paste0(sampleB, " (", sampleA,")")))
+
 
 # DataViz %>% dplyr::count(sam_group, sampleA, sampleB, sampleX)  %>%
 #   separate(sampleX, into = c("Diatery", "Time"), sep = "_", remove = T) %>%
