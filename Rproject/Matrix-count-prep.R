@@ -15,6 +15,9 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 
 f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.matrix", full.names = T)
 
+
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.matrix$", full.names = T)
+
 # count_f <- list.files(path = path, pattern = "Counts.txt", full.names = T)
 
 # MTD_f <- list.files(path = path, pattern = "METADATA.tsv", full.names = T)
@@ -24,7 +27,7 @@ library(tidyverse)
 
 COUNTS <- read_tsv(f)
 
-colNames <- gsub("_L[0-9]|.genes|.isoforms.results", "", basename(names(COUNTS)))
+colNames <- gsub("_L[0-9]|.genes.results", "", basename(names(COUNTS)))
 
 colNames[1] <- "rowid"
 
@@ -58,6 +61,10 @@ file_out <- gsub(".matrix", ".filt.rds",f)
 
 write_rds(COUNTS, file = file_out)
 
+# agglomarate based on identical peptide sequences ?
+
+
+
 # exit
 
 
@@ -80,18 +87,18 @@ vst <- DESeq2::varianceStabilizingTransformation(dds) # vst if cols > 10
 
 ntr <- DESeq2::normTransform(dds)
 
-DESeq2::plotPCA(ntr, intgroup = "pH")
-DESeq2::plotPCA(vst, intgroup = "pH")
+# DESeq2::plotPCA(ntr, intgroup = "design")
+# DESeq2::plotPCA(vst, intgroup = "design")
 
 raw_df <- vsn::meanSdPlot(assay(dds), plot = F)
 
 vst_df <- vsn::meanSdPlot(assay(vst), plot = F)
 ntr_df <- vsn::meanSdPlot(assay(ntr), plot = F)
 
-rbind(data.frame(py = vst_df$sd, px = vst_df$rank, col = "vst"),
-  data.frame(py = ntr_df$sd, px = ntr_df$rank, col = "ntr"),
+rbind(data.frame(py = vst_df$sd, px = vst_df$rank, col = "varianceStabilizingTransformation (vst)"),
+  data.frame(py = ntr_df$sd, px = ntr_df$rank, col = "normTransform (ntr)"),
   data.frame(py = raw_df$sd, px = raw_df$rank, col = "raw")) %>%
-  filter(col != "raw") %>%
+  # filter(col != "raw") %>%
   ggplot(aes(px, py, color = col)) +
   labs(x = "Ranks", y = "sd", color = "") +
   geom_line(orientation = NA, position = position_identity(), size = 2) +

@@ -31,7 +31,7 @@ eggNOG_cols <- c("gene_id","protein_id", "Preferred_name","Description", "GO","P
 
 mapper_f <- list.files(path = pub_dir, pattern = "eggnog_mapper.emapper.annotations.rds",full.names = T)
 
-MAPPERDB <- read_rds(mapper_f) %>% select_at(vars(contains(eggNOG_cols), starts_with("KEGG"))) 
+MAPPERDB <- read_rds(mapper_f) %>% select_at(vars(contains(eggNOG_cols), starts_with("KEGG"))) %>% select(-gene_id)
 
 
 # Conopeptide annotation
@@ -40,6 +40,7 @@ MAPPERDB <- read_rds(mapper_f) %>% select_at(vars(contains(eggNOG_cols), starts_
 cnsrtr_f <- list.files(path = pub_dir, pattern = "ConoSorter_regex_pHMM.rds", full.names = T)
 
 SORTERDB <- read_rds(cnsrtr_f)
+
 # 2.2 CONODICTOR ------
 
 cndctr_f <- file.path(pub_dir, "Conodictor2.rds")
@@ -60,9 +61,13 @@ BLASTPDB <- read_rds(blastp_f)
 # 5) Fasta file
 # bind gene_id, dna_seq, protein_id, pep_seq
 
-dna <- list.files(pub_dir, "Merged_polyA_hisat_SuperDuper.fasta$", full.names = T)
+# dna <- list.files(pub_dir, "Merged_polyA_hisat_SuperDuper.fasta$", full.names = T)
 
-pep <- list.files(pub_dir, "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep$", full.names = T)
+orf_dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/Merged_polyA_hisat_SuperDuper.transdecoder_dir_upgrade/"
+
+dna <- list.files(orf_dir, "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.cds$", full.names = T)
+
+pep <- list.files(orf_dir, "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep$", full.names = T)
 
 
 # IOBUF_SIZE=200002
@@ -78,18 +83,25 @@ pep <- scanFa(fa, param=param, as = "AAStringSet")
 
 head(pepdf <- data.frame(protein_id = names(pep), pep_seq = c(pep)) %>% as_tibble())
 
-dna <- Biostrings::readDNAStringSet(dna)
+# dna <- Biostrings::readDNAStringSet(dna)
 
-gene_id <- sapply(strsplit(names(dna), " "), `[`, 1)
+fa = FaFile(dna)
+indexFa(fa,as = "DNAStringSet")
+(param = scanFaIndex(fa))
+
+dna <- scanFa(fa, param=param, as = "DNAStringSet")
+
+# gene_id <- sapply(strsplit(names(dna), " "), `[`, 1)
 
 # dnadf must filtered to peptide sequences
 
-head(dnadf <- data.frame(gene_id = gene_id, dna_seq = c(dna)) %>% as_tibble())
+# head(dnadf <- data.frame(gene_id = gene_id, dna_seq = c(dna)) %>% as_tibble())
+
+head(dnadf <- data.frame(protein_id = names(dna), dna_seq = c(dna)) %>% as_tibble())
 
 seqdf <- pepdf %>% 
-  mutate(gene_id = gsub(".p[0-9]+$","", protein_id)) %>%
+  # mutate(gene_id = gsub(".p[0-9]+$","", protein_id)) %>%
   left_join(dnadf) 
-
 
 # Bind Mapper -----
 
@@ -127,6 +139,7 @@ sum(PEPTIDESDB$protein_id %in% DICTORDB$protein_id)/nrow(DICTORDB)
 # Add cross-check column
 
 DF1 <- DICTORDB %>% distinct(protein_id) %>% mutate(prediction_tool = "Conodictor")
+
 DF2 <- SORTERDB %>% ungroup() %>% distinct(protein_id) %>% mutate(prediction_tool = "ConoSorter")
 
 which_tools <- function(x) { 
@@ -145,7 +158,7 @@ CrossCheckdf <- rbind(DF1, DF2) %>%
     across(prediction_tool, .fns = which_tools), 
     .groups = "drop_last")
 
-CrossCheckdf %>% count(prediction_tool)
+CrossCheckdf %>% dplyr::count(prediction_tool)
   
 PEPTIDESDB <- PEPTIDESDB %>% left_join(CrossCheckdf)
 
@@ -157,12 +170,11 @@ PEPTIDESDB <- SIGNALPDB %>% right_join(PEPTIDESDB)
 
 nrow(PEPTIDESDB)
 
-PEPTIDESDB %>% count(prediction_tool, Signalp_class)
+PEPTIDESDB %>% dplyr::count(prediction_tool, Signalp_class)
 
 # Bind emapper to PeptideDB ======
 
 DB1 <- DB1 %>% left_join(PEPTIDESDB)
-
 
 # Sanity check (1)
 
@@ -176,11 +188,11 @@ sum(DB1$protein_id %in% PEPTIDESDB$protein_id)/nrow(PEPTIDESDB)
 
 # ===== BlastP to Toxprot and conoserver
 
-sum(DB1$protein_id %in% BLASTPDB$protein_id)
+sum(DB1$protein_id %in% BLASTPDB$protein_id)/nrow(BLASTPDB)
 
 # Outpts =====
 
-write_rds(DB1, file = paste0(pub_dir, "/structured_db.rds"))
+# write_rds(DB1, file = paste0(pub_dir, "/structured_db.rds"))
 
 
 # AA
@@ -212,17 +224,17 @@ seqs <- PEPTIDESDB %>%
   mutate(uniprotkb_toxprot = sapply(strsplit(uniprotkb_toxprot, "[|]"), `[`, 2)) %>%
   mutate(uniprotkb_toxprot = ifelse(is.na(uniprotkb_toxprot), "Unknown", uniprotkb_toxprot)) %>%
   mutate(conoserver_protein = ifelse(is.na(conoserver_protein), "Unknown", conoserver_protein)) %>%
-  select(dna_seq, gene_id, prediction_tool, Signalp_class, uniprotkb_toxprot, conoserver_protein) %>%
-  unite("gene_id", gene_id:conoserver_protein, sep = "|") %>%
-  pull(dna_seq, name = gene_id)
+  select(dna_seq, protein_id, prediction_tool, Signalp_class, uniprotkb_toxprot, conoserver_protein) %>%
+  unite("protein_id", protein_id:conoserver_protein, sep = "|") %>%
+  pull(dna_seq, name = protein_id)
 
 
-seqs <- DB1 %>% 
-  drop_na(tab) %>% 
-  filter(Signalp_class == "SP") %>%
-  distinct(dna_seq, gene_id) %>%
-  # mutate(pep_seq = gsub("[*]$", "", pep_seq)) %>%
-  pull(dna_seq, name = gene_id) 
+# seqs <- DB1 %>% 
+#   drop_na(tab) %>% 
+#   filter(Signalp_class == "SP") %>%
+#   distinct(dna_seq, gene_id) %>%
+#   # mutate(pep_seq = gsub("[*]$", "", pep_seq)) %>%
+#   pull(dna_seq, name = gene_id) 
 
 seqs <- Biostrings::DNAStringSet(seqs)
 
@@ -258,6 +270,9 @@ PEPTIDESDB %>%
 
 PEPTIDESDB %>% count(Signalp_class, prediction_tool)
 
+seqdf %>%
+  right_join(clustersdf) %>% 
+  count(cluster)
 
 # Exit
 

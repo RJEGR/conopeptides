@@ -8,6 +8,8 @@
 # N cys frameworks
 # Split by treatment
 
+# Groups direction: positive logFC == sampleA & negative logFC == sampleB
+
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
@@ -31,15 +33,104 @@ pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
 # DB <- read_rds(paste0(pub_dir, "/structured_db.rds"))
 
-DB %>% mutate(len = nchar(pep_seq)) %>% 
+read_rds(paste0(pub_dir, "/structured_db.rds")) %>% mutate(len = nchar(pep_seq)) %>% 
   # count(prediction_tool, len) %>%
   # drop_na(prediction_tool) %>%
-  ggplot() + stat_ecdf(aes(len, color = prediction_tool))
-  # geom_col(position = position_stack(), aes(y = n/90497, x = len, fill = prediction_tool)) 
+  mutate(prediction_tool = paste(prediction_tool, Signalp_class, sep = "|")) %>%
+  ggplot(aes(color = prediction_tool, fill = prediction_tool)) + 
+  # stat_ecdf()
+  geom_boxplot(aes(x= len, y = prediction_tool))
+  geom_histogram(aes(len)) + facet_grid(prediction_tool ~ ., scales = "free_y")
 
-CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
+CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv")) %>%  view()
+  mutate(len = nchar(pep_seq)-1) %>%
+  # To be consistent w/ RES
+  filter(Signalp_class == "SP") %>%
+  drop_na(prediction_tool) 
 
 CONOPEPDB %>% count(Signalp_class, prediction_tool)
+
+# How to filter True conopeptides?
+# Find which vars, correlates by some groups
+
+# library(rstatix)
+# 
+# CONOPEPDB %>%
+#   mutate_if(is.character, as.factor) %>% 
+#   mutate_if(is.factor, as.numeric) %>%
+#   rstatix::cor_mat(vars = c("Conflict", "hmm_pred_conodictor", "Superfamily", "Region")) %>%
+#   cor_reorder() %>%
+#   pull_lower_triangle() %>%
+#   cor_plot(label = TRUE)
+
+
+# head(replace_na(data = CONOPEPDB$hmm_pred_conodictor, replace = "0"))
+
+# replace_NA <- function(x) replace_na("Unknown")
+
+vars_to_numeric <- CONOPEPDB %>% 
+  select(-protein_id) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  select_if(is.factor) %>% names()
+
+
+# Migrate this step for a new script
+
+# cor_out <- vector("list", length(vars_to_numeric))
+
+names(cor_out) <- vars_to_numeric
+
+for (i in 1:length(vars_to_numeric)) {
+  
+  var <- vars_to_numeric[i] # vars_to_numeric[1]
+  
+  which_vars <- c(vars_to_numeric, var)
+  
+  cor_out[[i]] <- CONOPEPDB %>% 
+    select(-protein_id, -gene_id) %>%
+    mutate_if(is.character, as.factor) %>% 
+    mutate_if(is.factor, as.numeric) %>%
+    mutate(param = var) %>% 
+    drop_na(param) %>% 
+    rstatix::cor_mat(vars = which_vars) %>% 
+    rstatix::cor_gather()
+  
+  
+}
+
+do.call(bind_rows, cor_out) -> cor_df 
+
+cor_df %>% filter(var1 %in% vars_to_numeric & var2 %in% vars_to_numeric & cor != 1)
+
+# cor_df <- cor_df %>% filter(!var1 %in% vars_to_numeric & cor != 1) 
+
+cor_df <- cor_df %>%
+  mutate(star = ifelse(p <.001, "***", 
+    ifelse(p <.01, "**",
+      ifelse(p <.05, "*", ""))))
+
+lo = floor(min(cor_df$cor))
+up = ceiling(max(cor_df$cor))
+mid = (lo + up)/2
+
+cor_df %>%
+  mutate(var1 = factor(var1, levels = vars_to_numeric)) %>%
+  mutate(var2 = factor(var2, levels = vars_to_numeric)) %>%
+  # mutate(cor = ifelse(p <.05, NA, cor)) %>%
+  ggplot(aes(y = var1, x = var2, fill = cor)) +
+  geom_tile(color = 'black', linewidth = 0.7, width = 1) +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+    na.value = "white", midpoint = mid, limit = c(lo, up),
+    name = NULL) +
+  geom_text(aes(label = star), size = 4) +
+  scale_color_identity(guide = FALSE) +
+  labs(x = NULL, y = NULL, title = " multiple c. subjects") +
+  theme_minimal(base_size = 14, base_family = "GillSans") +
+  theme(plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, 
+      margin = unit(c(t = 0.5, r = 0, b = 0, l = 0), "mm")))
+
+# Continue here
 
 CONOPEPDB <- CONOPEPDB %>% filter(Signalp_class == "SP") %>% drop_na(prediction_tool) 
 
@@ -47,8 +138,11 @@ CONOPEPDB <- CONOPEPDB %>% filter(Signalp_class == "SP") %>% drop_na(prediction_
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
 # EDGER RES: 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
+
 RES.P <- read_rds(paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds")) %>%  
-  filter(FDR < 0.05 & abs(logFC) > 2)
+  filter(FDR < 0.05 & abs(logFC) > 2) %>%
+  mutate(sign = sign(logFC)) %>%
+  mutate(sampleX = ifelse(sign == 1, sampleA, sampleB))
 
 RES.P %>% distinct(gene_id) # 1,224 putative pep are degs
 
@@ -62,7 +156,21 @@ RES.P %>% distinct(gene_id) # 1,224 putative pep are degs
   select(LIBRARY_ID, Time, Diatery, design) %>%
   mutate_if(is.character, as.factor)
 
-RES.P %>% dplyr::count(sam_group, sampleA, sampleB, sampleX)
+# Filter Up putative conotoins in time (2 and 4) vs control
+
+RES.P.Ctrl <- RES.P %>% 
+  filter(if_any(where(is.character), ~ grepl(pattern = 'Ctrl', x = .x, ignore.case = T))) 
+
+RES.P.Ctrl %>%
+  dplyr::count(sam_group, sampleA, sampleB, sampleX) %>%
+  ggplot(aes(y = n, x = sampleX)) + facet_grid(~ sam_group, scales = "free_x") +
+  geom_col()
+
+RES.P.Ctrl %>%
+  ggplot(aes(logFC)) + 
+  # facet_grid(~ sam_group, scales = "free_x") +
+  geom_histogram()
+
 
 # 
 # As ORFs include exclusively peptides with start and stop codon. Considere include all classes of regions

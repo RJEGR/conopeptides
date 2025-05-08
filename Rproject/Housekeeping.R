@@ -16,7 +16,20 @@ library(tidyverse)
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
 
-# REad
+# LOAD And transform
+
+subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
+
+f <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix"
+
+f <- list.files(file.path(dir, subdir), f, full.names = T)
+
+datExpr <- round( read_rds(f))
+
+vst <- DESeq2::vst(datExpr) # vst if cols > 10 and varianceStabilizingTransformation if cols < 10
+
+
+# Or read
 rds <- read_rds(file_out <- paste0(dir, "/counts_vst_nt_raw.rds"))
 
 vst <- rds$vst
@@ -118,9 +131,11 @@ boostrap_common_dispersion <- function(raw_count, count_matrix, sample_size = 0.
 
 boostrap_dispersion <- replicate(1000, boostrap_common_dispersion(raw_count = datExpr, count_matrix = filtered_gene_expression ))
 
-if(!is.null(dev.list())) dev.off()
+# if(!is.null(dev.list())) dev.off()
 
-write_rds(boostrap_dispersion, file = paste0(dir,"/boostrap_dispersion.rds"))
+# write_rds(boostrap_dispersion, file = paste0(dir,"/boostrap_dispersion.rds"))
+
+write_rds(boostrap_dispersion, file = paste0(dir,"/cds_kallisto_boostrap_dispersion.rds"))
 
 hist(boostrap_dispersion)
 

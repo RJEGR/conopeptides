@@ -27,13 +27,23 @@ DB <- read_rds(paste0(pub_dir, "/structured_db.rds"))
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
-disp_value <- read_rds(paste0(dir,"/boostrap_dispersion.rds"))
+# disp_value <- read_rds(paste0(dir,"/boostrap_dispersion.rds"))
 
-f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.rds", full.names = T)
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.rds", full.names = T)
+
+subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
+
+f <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix"
+
+f <- list.files(file.path(dir, subdir), f, full.names = T)
+
 
 dim(datExpr <- readRDS(f))
 
 datExpr <- round(datExpr)
+
+disp_value <- read_rds(paste0(dir,"/cds_kallisto_boostrap_dispersion.rds"))
+
 
 .colData <- list.files(dir, pattern = "Manifest", full.names = T) 
 
@@ -72,7 +82,7 @@ ntr_df <- vsn::meanSdPlot(assay(ntr), plot = F)
 
 rbind(
   data.frame(py = vst_df$sd, px = vst_df$rank, col = "vst"),
-  data.frame(py = ntr_df$sd, px = ntr_df$rank, col = "ntr"),
+  # data.frame(py = ntr_df$sd, px = ntr_df$rank, col = "ntr"),
   data.frame(py = raw_df$sd, px = raw_df$rank, col = "raw")) %>%
   filter(col != "ntr") %>%
   # ggplot(aes(y = col, x = py, fill = after_stat(x))) +
@@ -234,13 +244,12 @@ comb_list <- strsplit(combinations_vector, "-")
 OUT <- lapply(comb_list, 
   function(x) run_edgeR(datExpr, gstr = x, .colData, disp_value = mean(disp_value)))
 
-
 OUT <- do.call(rbind, OUT)
 
 OUT <- OUT %>% filter(PValue < 0.05)
 
 # write_rds(OUT, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds"))
-write_rds(OUT, file = paste0(dir, "/exactTest_multiple_contrast.rds"))
+write_rds(OUT, file = paste0(file.path(dir, subdir), "/p05_exactTest_multiple_contrast.rds"))
 
 # pre 
 

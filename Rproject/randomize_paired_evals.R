@@ -152,7 +152,7 @@ conoSortdf <- conoSortdf %>%
   mutate(contig_name = gsub(".p[0-9]+$","", protein_id)) %>%
   mutate(Region = dplyr::recode_factor(Region, !!!recode_to))
   
-conoSortdf %>% count(tab, Region)
+conoSortdf %>% count(Method, tab, Region)
 
 conoSortdf %>% count(Method)
 
@@ -164,6 +164,8 @@ transratedf <- transratedf %>% left_join(conoSortdf)
 
 transratedf %>% count(tab, Region)
 
+
+
 # Transrate -----
 
 # as there was a strong monotonic relationship between contig accuracy and TransRate contig score, use this column to represent accuracy of the assembly contig
@@ -173,6 +175,24 @@ recode_to <- c("SuperDuper", "Spades", "Trinity")
 
 transratedf <- transratedf %>%
   mutate(Method = factor(Method, levels = rev(recode_to)))
+
+
+# plot 0 co-ocurrance of conotoxins
+
+conoSortdf %>% 
+  # mutate(Method = factor(Method, levels = rev(recode_to))) %>%
+  count(Method, Region, Superfamily) %>%
+  ggplot(aes(y = Method, x = Superfamily, fill = n)) +
+  geom_tile(color = 'white', width = 1, height = 1) +
+  geom_text(aes(label= n), hjust= 1.05, vjust = 0.5, size = 2.5, family = "GillSans", color = "white") +
+  scale_x_discrete(position = "top") +
+  theme_bw(base_family = "GillSans", base_size = 12) + 
+  theme(legend.position = "none", 
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 70, size = 10, hjust = 0),
+    # panel.grid.major.y = element_blank(),
+    # axis.text.y = element_blank(), axis.ticks.y = element_blank(), 
+    axis.title.x = element_text(size = 7))
 
 # plot 1
 
@@ -227,6 +247,18 @@ p2 <- p2 + guides(fill=guide_legend(title = ""))
 # load the DECIPHER library in R
 # library(DECIPHER)
 
+# Subset refseq to 'real' sequence population from the output: 
+# conoserver_nucleic_californicus_legth_longest_orfs_Regex.tab
+# From the pipeline conoserver_nucleic_californicus > longest_orfs > Regex 
+# This pipeline include sensitivity of both, transdecoder to predict longest_orf and conoSorter to identify known conotoxins
+
+queryids <- conoSortdf %>% 
+  filter(Method %in% "conoserver_nucleic_californicus_legth") %>%
+  distinct(contig_name) %>% pull()
+
+refseq <- refseq[names(refseq) %in% queryids]
+
+
 # cluster the sequences
 clusters <- DECIPHER::Clusterize(refseq,
   cutoff=0.5, # < 50% distant
@@ -268,6 +300,7 @@ labels <- heatmapdf %>% distinct(hits, Desc) %>% pull(Desc, name = hits)
 
 
 p3 <- heatmapdf %>%
+  # count(Method, Region, hits) %>%
   # mutate(col = ifelse(is.na(Method), "Not-assembled", "Assembled")) %>%
   ggplot(aes(y = Method, x = hits)) + #  fill = as.factor(Score_sf)
   geom_tile(fill = "black", color = 'white', width = 0.5, height = 0.25) +
@@ -285,17 +318,19 @@ p3 <- heatmapdf %>%
     # panel.grid.major.x = element_blank(),
     panel.grid.minor = element_blank(),
     strip.text = element_text(size = 7),
-    axis.title.x = element_text(size = 7),
+    axis.title.x = element_text(size = 10),
     strip.background = element_rect(fill = 'white', color = 'white', size = 10)) +
-  labs (title = "Artificial fastq true set analysis", x = "Sequence alignment (Pairwise Distances)") 
+  labs (title = "Co-ocurrance of conotoxin identification", 
+    subtitle = "Artificial fastq true set analysis",
+    x = "Sequence alignment (Pairwise Distances)") 
 
 library(ggh4x)
 
 p3 <- p3 + 
   ggh4x::scale_x_dendrogram(hclust = hclust, position = 'bottom', labels = NULL) +
-  guides(x.sec = guide_axis_manual(labels = labels, label_size = 5, angle = 70, label_family = "GillSans"))  
+  guides(x.sec = guide_axis_manual(labels = labels, label_size = 5, angle = 90, label_family = "GillSans"))  
 
-ggsave(p3, filename = 'randomize_paired_evals_heatmap.png', path = pub_dir, width = 10, height = 5, device = png, dpi = 700)
+ggsave(p3, filename = 'randomize_paired_evals_heatmap.png', path = pub_dir, width = 5, height = 4.5, device = png, dpi = 700)
 
 # plot 4: barplot of toxins
 

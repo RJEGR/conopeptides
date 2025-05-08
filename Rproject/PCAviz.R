@@ -17,10 +17,17 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 
 f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.filt.rds", full.names = T)
 
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.filt.rds", full.names = T)
+f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.rds", full.names = T)
+
+
+
 library(DESeq2)
 library(tidyverse)
 
 dim(COUNT <- read_rds(f))
+
+COUNT <- round(COUNT)
 
 f <- list.files(path = dir, pattern = "Manifest", full.names = T)
 
