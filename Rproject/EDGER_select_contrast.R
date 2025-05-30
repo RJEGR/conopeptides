@@ -2,6 +2,8 @@
 # This is a copy from EDGERViz.R 
 # Groups direction: positive logFC == sampleA & negative logFC == sampleB
 # selecting groups of contrasts as Edith suggest
+# Because Quantification performed at CDS level, including protein_ids with identical CDS, lets to collapse DEG results based on the CDS sequence. This is posible as redundancy spread to identical CDS having identical expression patterns. Or better, redoing 
+
 
 rm(list = ls())
 
@@ -9,11 +11,11 @@ if(!is.null(dev.list())) dev.off()
 
 options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
-time_levs <- c("Ctrl", "2", "4", "6")
-recode_time <- structure(c("Control", "2 months", "4 months", "6 months"), names = time_levs)
+# time_levs <- c("Ctrl", "2", "4", "6")
+# recode_time <- structure(c("Control", "2 months", "4 months", "6 months"), names = time_levs)
 
-Diatery_levs <- c("Ctrl","Cam", "Lit", "Pol", "Mix")
-recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"), names = Diatery_levs)
+# Diatery_levs <- c("Ctrl","Cam", "Lit", "Pol", "Mix")
+# recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"), names = Diatery_levs)
 
 # recode_Diatery <- structure(c("CT","SD", "LD", "PD", "MD"), names = Diatery_levs)
 
@@ -58,12 +60,11 @@ RES %>% dplyr::count(sampleA, sampleB, sort = T)
 
 # Match putative conopeptides (Precursor and Pro-peptide and mature)
 
-DB %>% 
-  # filter(Signalp_class == "SP") %>%
-  dplyr::count(Signalp_class, prediction_tool)
+DB %>%  dplyr::count(Signalp_class, prediction_tool)
 
 CONOPEPDB <- DB %>% 
   # filter(Signalp_class == "SP") %>%
+  # filter(prediction_tool == "BOTH") %>%
   drop_na(prediction_tool) 
 
 str(query_genes <- CONOPEPDB %>% distinct(protein_id) %>% pull()) # 12136 putative conopeptide genes
@@ -78,6 +79,63 @@ RES %>%
   ggplot(aes(FDR)) + 
   # facet_wrap(sampleA ~ sampleB) +
   geom_histogram()
+
+# Previz global number of conotoxin degs by contrast group =====
+
+levs <- c("Ctrl","Cam_2","Camv_2", "Cam_4", "Lit_2", "Lit_4","Pol_2", "Pol_4", "Mix_2", "Mix_4")
+
+recode_to <- structure(c("Control","Shrimp", "Shrimp","Shrimp","Mollusk", "Mollusk","Polychaete", "Polychaete","Mixed","Mixed"), names = levs)
+
+RES %>% dplyr::distinct(sampleB)
+
+# positive logFC == sampleA & negative logFC == sampleB
+
+DataVizdf <- RES %>%
+  # If collapse DEGS to CDS Level use:
+  # CONOPEPDB %>% distinct(protein_id, dna_seq, pep_seq) %>% right_join(RES) %>%  select(-protein_id) %>% distinct() %>%
+  # Currently are only FDR < 0.05
+  filter(FDR < 0.05 & abs(logFC) > 2 ) %>%
+  mutate(facet = ifelse( sign(logFC) == 1, "up in sampleA", "up in sampleB")) %>%
+  dplyr::count(sampleA, sampleB, facet, sort = T) 
+
+
+DataVizdf %>%
+  # dplyr::mutate(facet = dplyr::recode_factor(sampleA, !!!recode_to)) %>%
+  ggplot(aes(y = sampleA, x = sampleB, fill = n)) +
+  facet_grid(~ facet, scales = "free") +
+  geom_tile(color = 'white', linewidth = 0.5) +
+  geom_text(aes(label = n), size = 3, family = "GillSans", color = "white") +
+  theme_bw(base_family = "GillSans", base_size = 10) +
+  labs(subtitle = "DEGS: FDR < 0.05 & abs(logFC) > 2 & Signalp_class == SP") +
+  theme(
+    legend.position = "none",
+    # panel.border = element_blank(),
+    plot.title = element_text(hjust = 0),
+    plot.caption = element_text(hjust = 0),
+    panel.grid.minor.y = element_blank(),
+    # panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    # panel.grid.major.x = element_blank(),
+    # axis.text.y.right = element_text(angle = 0, hjust = 1, vjust = 0, size = 2.5),
+    axis.text.y = element_text(angle = 0, size = 7),
+    axis.text.x = element_text(angle = 0, size = 7),
+    strip.background = element_rect(fill = 'white', color = 'white'),
+    strip.text = element_text(color = "black",hjust = 0, size = 10)) -> P
+
+P <- P +
+  geom_segment(
+     data = filter(DataVizdf, facet == "up in sampleA"), 
+      x = 8, xend = 1, 
+      y = 10, yend = 10, 
+      colour = "gray7", 
+      arrow = arrow(ends = "last", length = unit(0.15, "cm"))) +
+  annotate("text", x = 4, y = 10.3, size = 3, label = "Contrast sence",  color = "gray7", family = "GillSans") +
+  geom_segment(
+    data = filter(DataVizdf, facet == "up in sampleB"), 
+    x = 8, xend = 1, 
+    y = 10, yend = 10, 
+    colour = "gray7", 
+    arrow = arrow(ends = "first", length = unit(0.15, "cm")))
 
 # Select multiple contrast of interest
 # shrimp ----
@@ -167,10 +225,26 @@ DataViz %>%
   ggplot(aes(FDR)) + 
   geom_histogram()
 
-nrow(DataViz %>% distinct(protein_id)) # 6086 putative conopeptides presented in the selected contrast (not DEGs filtered yet)
+nrow(DataViz %>% distinct(protein_id)) # 6086 putative conopeptides presented in the selected contrast (not log2FC and SIgnalP filtered yet)
 
 write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
 
+DataViz <- CONOPEPDB %>% distinct(protein_id, dna_seq, pep_seq) %>% right_join(DataViz) %>%  select(-protein_id) %>% distinct()
+
+write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments_cds_level.rds"))
+
+
+frames_df <- DataViz %>%
+  filter(FDR < 0.05 & abs(logFC) > 2 ) %>%
+  mutate(facet = ifelse( sign(logFC) == 1, "up in sampleA", "up in sampleB")) %>%
+  dplyr::count(sampleA, sampleB, facet, sort = T) 
+
+
+  
+P <- P + geom_tile(data=frames_df, color="orange", fill = NA, linewidth = 1)
+
+ggsave(P, filename = 'Marginals_degs_cds_level.png', 
+  path = pub_dir, width = 7, height = 3, device = png, dpi = 600)
 
 # Exit ------
 

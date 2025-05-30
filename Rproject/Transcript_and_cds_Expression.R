@@ -16,6 +16,21 @@ library(tidyverse)
 
 pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
+orf_dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/Merged_polyA_hisat_SuperDuper.transdecoder_dir_upgrade/"
+
+dna <- list.files(orf_dir, "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.cds$", full.names = T)
+
+library(Rsamtools)
+fa = FaFile(dna)
+indexFa(fa,as = "DNAStringSet")
+(param = scanFaIndex(fa))
+
+dna <- scanFa(fa, param=param, as = "DNAStringSet")
+
+# head(dna <- data.frame(dna_seq = as.character(dna)))
+
+# as_tibble(dna, rownames = "protein_id")
+
 # Library	Raw PE (x2)	Poly-A trim
 Total_reads <- c(
   "cam2_E_CKDL230016188-1A_H75JVDSX7"=	14406214,
@@ -124,6 +139,27 @@ kallisto_matrix <-combine_matrix(subdirs)
 file_out <- file.path(subdirs, "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix")
 
 write_rds(as(kallisto_matrix, "matrix"), file = file_out)
+
+# Dedup cds
+# Because Quantification performed at CDS level, including protein_ids with identical CDS, lets to collapse DEG results based on the CDS sequence. This is posible as redundancy spread to identical CDS having identical expression patterns
+
+identical(names(as.character(dna)), rownames(kallisto_matrix)) # TRUE
+
+# as.character(dna)[match(rownames(kallisto_matrix), names(as.character(dna)))]
+
+# identical(names(cds_df), rownames(kallisto_matrix)) # TRUE
+
+length(unique(as.character(dna)))
+
+cds_seq <-  as.character(dna)
+names(cds_seq) <- NULL
+
+kallisto_matrix <- data.frame(kallisto_matrix, cds_seq) %>%
+  # group_by(cds_seq) %>%
+  distinct() 
+  # summarise_at(vars(names(kallisto_matrix)), sum)
+
+dim(kallisto_matrix)
 
 coveragedf_salmon <- colSums(salmon_matrix) %>% as_tibble(rownames = "LIBRARY_ID") %>% dplyr::rename("salmon_cds_level" = "value")
 

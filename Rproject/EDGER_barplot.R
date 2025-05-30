@@ -17,6 +17,7 @@ pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
 DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
+
 CONOPEPDB <- DB %>%
   filter(Signalp_class == "SP") %>%
   mutate(uniprotkb_toxprot = sapply(strsplit(uniprotkb_toxprot, "[|]"), `[`, 2)) %>%
@@ -27,7 +28,7 @@ CONOPEPDB <- DB %>%
   mutate(hmm_pred_conodictor = ifelse(is.na(hmm_pred_conodictor), "uID", hmm_pred_conodictor)) %>%
   mutate(Superfamily = ifelse(is.na(Superfamily), "uID", Superfamily)) %>%
   mutate(prediction_tool = ifelse(tab %in% "pHMM", paste0(prediction_tool,"_",tab), prediction_tool)) %>%
-  select(protein_id, cluster, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
+  select(protein_id, pep_seq, cluster, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
   unite("y_axis", cluster:conoserver_protein, sep = "|") 
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
@@ -35,6 +36,8 @@ dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM
 subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
 
 f <- "cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"
+
+# f <- "cds_exactTest_multiple_contrast_ctrl_and_treatments_cds_level.rds"
 
 f <- list.files(file.path(dir, subdir), f, full.names = T)
 
@@ -45,12 +48,19 @@ RES <- read_rds(f)
 
 DataViz <- RES %>% filter(sampleX != "Ctrl") %>% filter(abs(logFC) > 2 & FDR < 0.05) %>% right_join(CONOPEPDB)
 
+# deduplicate to cds_level/pep_level
+
+DataViz <- DataViz %>% select(-protein_id) %>% distinct()
+
+
 # Step1: Contrasting results against control 
 
 DataViz <- DataViz %>% filter(if_any(where(is.character), ~ grepl(pattern = 'Ctrl', x = .x, ignore.case = T)))
 
 DataViz %>% mutate(sampleA = ifelse(sampleA == "Ctrl", sampleB, sampleA))
 
+DataViz %>%
+  dplyr::count(sam_group, sampleA, sampleB, sampleX)
 
 
 DataVizTop <- 
@@ -135,8 +145,43 @@ DataVizTop %>%
     strip.text = element_text(color = "black",hjust = 1, size = 7)) -> P
 
 
-# P
+P
 
 
 ggsave(P, filename = 'EDGERLOG2FCTOP10.png', 
   path = pub_dir, width = 5, height = 7, device = png, dpi = 600)
+
+
+# 
+
+myXStringSet <- DataVizTop %>% 
+  ungroup() %>% filter(sam_group == "Polychaete") %>% 
+  distinct(y_axis, pep_seq) %>% 
+  # mutate(pep_seq = gsub("[*]$","", pep_seq)) %>%
+  pull(pep_seq, name = y_axis)
+
+
+myXStringSet <- Biostrings::AAStringSet(c(myXStringSet))
+
+
+library(msa)
+
+align <- msa::msa(myXStringSet, method = "ClustalW", order = "input")
+
+.align <- msa::msaConvert(align)$seq
+
+names(.align) <- msa::msaConvert(align)$nam
+
+# data(BLOSUM62)
+# msaConservationScore(align, BLOSUM62)
+
+library(ggsci)
+
+pat <- c("-", alphabet(myXStringSet, baseOnly=TRUE))
+
+# colors <- structure(pal_aaas()(length(pat)), names = rev(pat))
+
+# scales::show_col(colors)
+
+DECIPHER::BrowseSeqs(AAStringSet(.align), colWidth = 120)
+
