@@ -1,6 +1,7 @@
 
 # Step1 Select up putative conotoxins in time (2 and 4) vs control
 # Step2 Select up putative conotoxin dfferent between time 2 and 4 per diet
+# Step3 Contrast temporalidad and diet specificity using venn diagram
 
 rm(list = ls())
 
@@ -48,20 +49,27 @@ RES <- read_rds(f)
 
 DataViz <- RES %>% filter(sampleX != "Ctrl") %>% filter(abs(logFC) > 2 & FDR < 0.05) %>% right_join(CONOPEPDB)
 
+# As duplicated CDS have same expression patters and so on, same gene-pairwise values in DE analysis, just deduplicate redundancy omiting protein_id but using pep_seq column
+
 # deduplicate to cds_level/pep_level
 
-DataViz <- DataViz %>% select(-protein_id) %>% distinct()
+nrow(DataViz)
 
+nrow(DataViz <- DataViz %>% select(-protein_id) %>% distinct())
 
-# Step1: Contrasting results against control 
+# Step1: Contrasting results against control (ie. omit contrast dietA_time1 vs dietA_time2)
 
-DataViz <- DataViz %>% filter(if_any(where(is.character), ~ grepl(pattern = 'Ctrl', x = .x, ignore.case = T)))
+# DataViz <- DataViz %>% filter(if_any(where(is.character), ~ grepl(pattern = 'Ctrl', x = .x, ignore.case = T)))
 
-DataViz %>% mutate(sampleA = ifelse(sampleA == "Ctrl", sampleB, sampleA))
+cols_to_check <- c("sampleA", "sampleB")
 
-DataViz %>%
-  dplyr::count(sam_group, sampleA, sampleB, sampleX)
+DataViz <- DataViz %>%
+  filter(
+    if_any(all_of(cols_to_check), ~ str_detect(.x, "Ctrl"))) 
 
+# DataViz <- DataViz %>% mutate(sampleA = ifelse(sampleA == "Ctrl", sampleB, sampleA))
+
+DataViz %>% dplyr::count(sam_group, sampleA, sampleB, sampleX)
 
 DataVizTop <- 
   DataViz %>% 
@@ -184,4 +192,80 @@ pat <- c("-", alphabet(myXStringSet, baseOnly=TRUE))
 # scales::show_col(colors)
 
 DECIPHER::BrowseSeqs(AAStringSet(.align), colWidth = 120)
+
+
+# Ven diagram or upset -----
+
+# Q: Those upexpressed are unique from time or expression increase by time?
+# 
+
+# Filter
+
+# If NA in DataViz, is because not preserved in CONOPEPDB
+
+DataViz <- DataViz %>% drop_na(sam_group)
+
+DataViz %>% 
+  dplyr::count(sam_group, sampleA, sampleB, sampleX)
+
+
+DataViz %>% 
+  select(pep_seq, sam_group, sampleX) %>%
+  mutate(sampleX = ifelse(grepl("_2$", sampleX), "2 months", "4 months")) %>%
+  # filter(grepl("_2$", sampleX)) %>%
+  distinct() %>%
+  dplyr::count(sam_group, sampleX)
+
+# Reformat
+# 
+UPSETDFA <- DataViz %>% 
+  select(pep_seq, sam_group, sampleX) %>%
+  mutate(sampleX = ifelse(grepl("_2$", sampleX), "2 months", "4 months")) %>%
+  distinct() %>%
+  # filter(grepl("_2$", sampleX)) %>%
+  mutate(summarise_col = sam_group) %>% 
+  # dplyr::mutate(sampleB = dplyr::recode_factor(sampleB, !!!recode_to)) %>%
+  group_by(pep_seq, sampleX) %>%
+  summarise(across(summarise_col, .fns = list), n = n())
+
+# Plot upset
+recode_to <- structure(c("Shrimp", "Mollusk", "Polychaete", "Mixed"))
+
+
+library(ggupset)
+
+my_font <- "GillSans"
+
+P <- UPSETDFA %>%
+  # filter(n > 1) %>%
+  ggplot(aes(x = summarise_col)) +
+  facet_grid(sampleX ~ ., scales = "free_y") +
+  geom_bar(fill = "black") +
+  scale_y_reverse("Number of conotoxins") +
+  geom_text(stat='count', aes(label = after_stat(count)), 
+    position = position_dodge(width = 1), vjust = 1.2, family = "GillSans", size = 2.5) +
+  scale_x_upset(order_by = "degree", reverse = F, position = "top") +
+  labs(x = "Degree of intersections") +
+  theme_bw() +
+  theme_combmatrix(
+    combmatrix.panel.point.color.fill = "black",
+    combmatrix.label.make_space = F,
+    # combmatrix.panel.point.color.fill = panel.point.color.fill,
+    combmatrix.panel.point.size = 0.25,
+    combmatrix.panel.line.size = 0.25,
+    base_family = "GillSans", base_size = 14,
+    strip.background = element_rect(fill = 'gray90', color = 'white'),
+    strip.text = element_text(color = "black", size = 12, family = "GillSans",hjust = 0.5),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.x = element_text(family = my_font),
+    axis.title.y = element_text(family = my_font),
+    axis.text.x = element_text(family = my_font),
+    axis.text.y = element_text(family = my_font)) +
+  axis_combmatrix(levels = recode_to) 
+
+ggsave(P, filename = 'Intersections.png', 
+  path = pub_dir, width = 5, height = 5, device = png, dpi = 600)
 
