@@ -2,6 +2,7 @@
 # In this case  Diamond (blastp conoServer and Tox-prot)
 # but it can extend to any outfmt6 result
 
+# Due to multiple hits per sequence, BLAST output will be drive individually from the DB
 
 rm(list = ls())
 
@@ -42,7 +43,12 @@ DB <- do.call(rbind, lapply(f, read_outfmt6))
 # as hits retriveved are 3, lets select the best score
 # ex
 
-DB %>% filter(protein_id %in% "Cluster-15813.148410.p2")
+DB %>% filter(protein_id %in% "Cluster-15813.148410.p2") %>% view()
+
+# query: MKLTC-VLIVAVLILTACQFTAADDMEYPKWLRGLSTDX-SERGCWLCLGPNACCRG-SVCHD-YCPR
+# target: MKLT-GVLIVAVLILTACQFTAADDMEYPKWLRGLSTD-KSERGCWLCLGPNACCRG-DVCH-SYCPR
+
+# How to keep accurate name for blast mapping?
 
 DB <- DB %>% 
   group_by(protein_id, FileName) %>%
