@@ -2,7 +2,7 @@
 # This is a copy from EDGERViz.R 
 # Groups direction: positive logFC == sampleA & negative logFC == sampleB
 # selecting groups of contrasts as Edith suggest
-# Because Quantification performed at CDS level, including protein_ids with identical CDS, lets to collapse DEG results based on the CDS sequence. This is posible as redundancy spread to identical CDS having identical expression patterns. Or better, redoing 
+# Because Quantification performed at CDS level, including protein_ids with identical CDS, lets to collapse DEG results based on the CDS sequence. This is posible as redundancy spread to identical CDS having identical expression patterns. 
 
 
 rm(list = ls())
