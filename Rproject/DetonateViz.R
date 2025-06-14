@@ -119,4 +119,37 @@ scoresdf %>%
   labs(y = "Frac. of Effective length (Detonate)", x = "") +
   theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "none")
 
+DB %>% 
+  drop_na(Superfamily, Conflict) %>%
+  # filter(Signalp_class == "SP" & Score_sf != 1) %>%
+  mutate(facet = ifelse(is.na(Conflict), "", "B) Redundant (conflict)")) %>%
+  mutate(x = contig_impact_score, x = sign(x) * log(1+abs(x)) ) %>% 
+  ggplot(aes(x, effective_length_frac, color = Signalp_class)) + geom_point(shape = 1, size = 3) +
+  facet_grid( ~ facet) +
+  labs(y = "Frac. of Effective length (Detonate)", x = "Contig impact score (pseudo-log transform)") +
+  theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "top")
 
+DB %>% 
+  # drop_na(Region) %>%
+  mutate(x = contig_impact_score, x = sign(x) * log(1+abs(x)) ) %>%
+  mutate(facet = ifelse(is.na(Conflict), "A) No redundant", "B) Redundant (conflict)")) %>%
+  ggplot(aes(y = x, x = Signalp_class, fill = after_stat(x))) +
+  geom_violin() +
+  geom_jitter(alpha = 0.5) +
+  # facet_grid( ~ Region) +
+  scale_fill_viridis_c(option = "C") +
+  labs(y = "Contig impact score (pseudo-log transform)", x = "") +
+  theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "none")
+
+
+DB %>% 
+  # drop_na(Region) %>%
+  mutate(x = contig_impact_score, x = sign(x) * log(1+abs(x)) ) %>%
+  mutate(facet = sign(x)) %>%
+  mutate(seq_len = nchar(pep_seq)-1) %>%
+  ggplot(aes(seq_len * sign(x))) +
+  geom_histogram() +
+  facet_grid(facet ~ .) 
+  scale_fill_viridis_c(option = "C") +
+  labs(y = "Contig impact score (pseudo-log transform)", x = "") +
+  theme_bw(base_family = "GillSans", base_size = 14) + theme(legend.position = "none")
