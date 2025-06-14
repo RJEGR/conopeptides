@@ -2,6 +2,7 @@
 # Step1 Select up putative conotoxins in time (2 and 4) vs control
 # Step2 Select up putative conotoxin dfferent between time 2 and 4 per diet
 # Step3 Contrast temporalidad and diet specificity using venn diagram
+# Step 4 Plot a facet of Metatranscriptome Sf, overal and exclusive DEGs per diet group
 
 rm(list = ls())
 
@@ -18,9 +19,10 @@ pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
 DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
+# Filter transcripts by TRUE conotoxin
 
 CONOPEPDB <- DB %>%
-  filter(Signalp_class == "SP") %>%
+  filter(Signalp_class == "SP" ) %>%
   mutate(uniprotkb_toxprot = sapply(strsplit(uniprotkb_toxprot, "[|]"), `[`, 2)) %>%
   mutate(uniprotkb_toxprot = ifelse(is.na(uniprotkb_toxprot), "uID", uniprotkb_toxprot)) %>%
   mutate(conoserver_protein = ifelse(is.na(conoserver_protein), "uID", conoserver_protein)) %>%
@@ -29,12 +31,13 @@ CONOPEPDB <- DB %>%
   mutate(hmm_pred_conodictor = ifelse(is.na(hmm_pred_conodictor), "uID", hmm_pred_conodictor)) %>%
   mutate(Superfamily = ifelse(is.na(Superfamily), "uID", Superfamily)) %>%
   mutate(prediction_tool = ifelse(tab %in% "pHMM", paste0(prediction_tool,"_",tab), prediction_tool)) %>%
-  select(protein_id, pep_seq, cluster, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
-  unite("y_axis", cluster:conoserver_protein, sep = "|") 
+  select(protein_id, pep_seq, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
+  unite("y_axis", Signalp_class:conoserver_protein, sep = "|") 
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
 subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
+
 
 f <- "cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"
 
@@ -218,7 +221,7 @@ DataViz %>%
 
 # Reformat
 # 
-UPSETDFA <- DataViz %>% 
+UPSETDF <- DataViz %>% 
   select(pep_seq, sam_group, sampleX) %>%
   mutate(sampleX = ifelse(grepl("_2$", sampleX), "2 months", "4 months")) %>%
   distinct() %>%
@@ -236,7 +239,7 @@ library(ggupset)
 
 my_font <- "GillSans"
 
-P <- UPSETDFA %>%
+P <- UPSETDF %>%
   # filter(n > 1) %>%
   ggplot(aes(x = summarise_col)) +
   facet_grid(sampleX ~ ., scales = "free_y") +
@@ -266,6 +269,76 @@ P <- UPSETDFA %>%
     axis.text.y = element_text(family = my_font)) +
   axis_combmatrix(levels = recode_to) 
 
+P
+
 ggsave(P, filename = 'Intersections.png', 
   path = pub_dir, width = 5, height = 5, device = png, dpi = 600)
+
+# Facets ======
+# Filter conotoxin 
+
+CONOPEPDB <- DB %>%
+  drop_na(Superfamily) %>%
+  filter(Signalp_class == "SP" & contig_impact_score > 0 & prediction_tool == "BOTH") %>%
+  # select(pep_seq, hmm_pred_conodictor, Superfamily, prediction_tool, tab) %>%
+  # mutate(hmm_pred_conodictor = stringr::str_to_sentence(hmm_pred_conodictor)) %>%
+  # mutate(hmm_pred_conodictor = ifelse(is.na(hmm_pred_conodictor), "uID", hmm_pred_conodictor)) %>%
+  # mutate(Superfamily = ifelse(is.na(Superfamily), "uID", Superfamily)) %>%
+  # mutate(prediction_tool = ifelse(tab %in% "pHMM", paste0(prediction_tool,"_",tab), prediction_tool)) %>%
+  # unite("y_axis", hmm_pred_conodictor:tab, sep = "|") %>%
+  mutate(y_axis = Superfamily)
+
+# Global metatrascriptome
+# Here we can see number of allelic variants for different conotoxins families
+CONOPEPDB %>%
+  dplyr::count(y_axis, sort = T) %>% drop_na() %>%
+  mutate(y_axis = factor(y_axis, levels = unique(y_axis))) %>%
+  ggplot(aes(y = y_axis, x = n)) + geom_col()
+
+# 1) Split global from exclusive DEGs
+
+# Add or omit sampleX if want to facet 2 from 4 moths ()
+overall_degs_df <- UPSETDF %>% 
+  ungroup() %>%
+  unnest(summarise_col) %>%
+  left_join(CONOPEPDB) %>% 
+  dplyr::count(sampleX, summarise_col, y_axis, sort = T) %>% drop_na() %>%
+  mutate(facet = "A) Overall DEGs")
+  
+
+UPSETDF %>% 
+  ungroup() %>%
+  filter(n == 1) %>% 
+  unnest(summarise_col) %>%
+  left_join(CONOPEPDB) %>% # Fix redundancy <----
+  dplyr::count(sampleX, summarise_col, y_axis, sort = T) %>% drop_na() %>%
+  mutate(facet = "B) Exclusive DEGs") %>%
+  rbind(overall_degs_df) %>%
+  mutate(y_axis = factor(y_axis, levels = unique(y_axis))) %>%
+  mutate(summarise_col = factor(summarise_col, levels = recode_to)) %>%
+  mutate(label = scales::comma(n)) %>%
+  ggplot(aes(y = y_axis, x = summarise_col, fill = n)) + 
+  # facet_grid(~ sampleX + summarise_col) +
+  ggh4x::facet_nested(~ facet +sampleX, nest_line = T) +
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) +
+  geom_text(aes(label= label), hjust= 1, vjust = 0.5, size = 3, family = "GillSans", color = "white") +
+  theme_bw(base_family = "GillSans", base_size = 10) +
+  labs(x = "", y = "Superfamily") +
+  theme(
+    legend.position = "none",
+    # panel.border = element_blank(),
+    plot.title = element_text(hjust = 0),
+    plot.caption = element_text(hjust = 0),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    # axis.text.y.right = element_text(angle = 0, hjust = 1, vjust = 0, size = 2.5),
+    axis.text.y = element_text(angle = 0, size = 12),
+    axis.text.x = element_text(angle = 0),
+    strip.background = element_rect(fill = 'white', color = 'white'),
+    strip.text = element_text(color = "black",hjust = 1, size = 12)) -> P
+
+ggsave(P, filename = 'Superfamilies_by_degs.png', 
+  path = pub_dir, width = 10, height = 10, dpi = 500, device = png)
 
