@@ -6,10 +6,11 @@
 # LOAD conodictor (cross-check)
 # LOAD, SignalP6 results, including protein_id (ID.p[0-9]+$)  and SP[sec/SPI] value ()
 # LOAD Diamond blastp conosorter (include cols: ) 
-# LOAD Diamond blastp Tox-prot
+# LOAD Diamond blastp Tox-prot <- check notes here 
 # LOAD sequence from Merged_polyA_hisat_SuperDuper.fasta.transdecoder.pep
 # LOAD paste0(pub_dir, "/WGCNA.tsv")
-# For conotoxin DB, generate a clustering-sequence label using DECIPHER::clustering
+# For conotoxin DB, generate a clustering-sequence label using DECIPHER::clustering (maybe omit)
+# LOAD Detonate Results and add contig_impact_score and effective_length_frac=effective_length/length
 # JOIN in the follow order:
 # 
 
@@ -129,7 +130,7 @@ PEPTIDESDB <- DICTORDB %>% full_join(SORTERDB)
 
 PEPTIDESDB <- PEPTIDESDB %>% left_join(BLASTPDB)
 
-# Sanity check
+# Sanity check (sum() === 1)
 # ===== PEPTIDESDB
 sum(PEPTIDESDB$protein_id %in% SORTERDB$protein_id)/nrow(SORTERDB)
 # ===== ConoDictor
@@ -189,6 +190,23 @@ sum(DB1$protein_id %in% PEPTIDESDB$protein_id)/nrow(PEPTIDESDB)
 # ===== BlastP to Toxprot and conoserver
 
 sum(DB1$protein_id %in% BLASTPDB$protein_id)/nrow(BLASTPDB)
+
+
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/03.Coverage/Contiguity_dir/Detonate_conopeptides_dir/"
+
+f <- list.files(dir, "conopeptides.score.isoforms.results", full.names = T)
+
+DETONATEDB <- read_tsv(f) %>% 
+  mutate(effective_length_frac = effective_length/length) %>% 
+  mutate(protein_id = sapply(strsplit(gene_id, "[|]"), `[`, 1)) %>%
+  select(protein_id, contig_impact_score, effective_length_frac) 
+
+# ===== Detonate 
+
+PEPTIDESDB <- DETONATEDB %>% right_join(PEPTIDESDB)
+
+sum(DETONATEDB$protein_id %in% PEPTIDESDB$protein_id)/nrow(DETONATEDB)
+
 
 # Outpts =====
 
@@ -265,7 +283,7 @@ clustersdf <- clustersdf %>% mutate(protein_id =  sapply(strsplit(protein_id, "[
 
 PEPTIDESDB %>% 
   left_join(seqdf) %>%
-  left_join(clustersdf) %>% 
+  # left_join(clustersdf) %>% 
   write_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
 PEPTIDESDB %>% count(Signalp_class, prediction_tool)
