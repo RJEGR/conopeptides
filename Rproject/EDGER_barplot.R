@@ -204,7 +204,7 @@ DECIPHER::BrowseSeqs(AAStringSet(.align), colWidth = 120)
 
 # Filter
 
-# If NA in DataViz, is because not preserved in CONOPEPDB
+# If NA in DataViz, is because not preserved in CONOPEPDB (filtered good assembled conotoxins)
 
 DataViz <- DataViz %>% drop_na(sam_group)
 
@@ -341,4 +341,19 @@ UPSETDF %>%
 
 ggsave(P, filename = 'Superfamilies_by_degs.png', 
   path = pub_dir, width = 10, height = 10, dpi = 500, device = png)
+
+# in addition to number of transcripts, summarise number of reads per family (or maybe zscore?)
+# Caution!!!
+# agglomerate gene_matrix by same superfamily going to mask allelic variation 
+
+barvizA <- CONOPEPDB %>% 
+  count(Superfamily, tab, sort = T)
+
+barvizB <- .count_vst %>%
+  as_tibble(rownames = "gene_id") %>%
+  left_join(distinct(CONOPEPDB, Superfamily, gene_id, tab)) %>%
+  group_by(Superfamily, tab) %>%
+  summarise_at(vars(all_of(colnames(.count_vst))), sum) %>% ungroup() 
+
+
 
