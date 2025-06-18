@@ -1,4 +1,5 @@
 
+# Step0 select up in control 
 # Step1 Select up putative conotoxins in time (2 and 4) vs control
 # Step2 Select up putative conotoxin dfferent between time 2 and 4 per diet
 # Step3 Contrast temporalidad and diet specificity using venn diagram
@@ -31,13 +32,13 @@ CONOPEPDB <- DB %>%
   mutate(hmm_pred_conodictor = ifelse(is.na(hmm_pred_conodictor), "uID", hmm_pred_conodictor)) %>%
   mutate(Superfamily = ifelse(is.na(Superfamily), "uID", Superfamily)) %>%
   mutate(prediction_tool = ifelse(tab %in% "pHMM", paste0(prediction_tool,"_",tab), prediction_tool)) %>%
-  select(protein_id, pep_seq, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
+  mutate(sf = Superfamily) %>%
+  select(protein_id, pep_seq, sf, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
   unite("y_axis", Signalp_class:conoserver_protein, sep = "|") 
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
 subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
-
 
 f <- "cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"
 
@@ -46,6 +47,12 @@ f <- "cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"
 f <- list.files(file.path(dir, subdir), f, full.names = T)
 
 RES <- read_rds(f)
+
+
+fcontrol <- paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_up_cds_level.rds")
+REScontrol <- read_rds(fcontrol) %>% filter(abs(logFC) > 2 & FDR < 0.05) %>% left_join(CONOPEPDB) 
+
+REScontrol %>% dplyr::count(sf, sort = T) %>% view()
 
 # As the interest is to known which conotoxin over-expressed due to diet, omit Ctrl group in sampleX column
 # In addition  filter significat DEGS
@@ -163,7 +170,7 @@ ggsave(P, filename = 'EDGERLOG2FCTOP10.png',
   path = pub_dir, width = 5, height = 7, device = png, dpi = 600)
 
 
-# 
+# omit -----
 
 myXStringSet <- DataVizTop %>% 
   ungroup() %>% filter(sam_group == "Polychaete") %>% 
@@ -290,14 +297,20 @@ CONOPEPDB <- DB %>%
 
 # Global metatrascriptome
 # Here we can see number of allelic variants for different conotoxins families
-CONOPEPDB %>%
+Globaldf <- CONOPEPDB %>%
   dplyr::count(y_axis, sort = T) %>% drop_na() %>%
   mutate(y_axis = factor(y_axis, levels = unique(y_axis))) %>%
-  ggplot(aes(y = y_axis, x = n)) + geom_col()
+  mutate(facet = "A) Global diversity")
+
+Globaldf %>%
+  ggplot(aes(y = y_axis, x = n)) + geom_col() +
+  labs(x = "Number of transcripts")
+
 
 # 1) Split global from exclusive DEGs
 
 # Add or omit sampleX if want to facet 2 from 4 moths ()
+
 overall_degs_df <- UPSETDF %>% 
   ungroup() %>%
   unnest(summarise_col) %>%
@@ -305,16 +318,19 @@ overall_degs_df <- UPSETDF %>%
   dplyr::count(sampleX, summarise_col, y_axis, sort = T) %>% drop_na() %>%
   mutate(facet = "A) Overall DEGs")
   
-
-UPSETDF %>% 
+unique_degs_df <- 
+  UPSETDF %>% 
   ungroup() %>%
   filter(n == 1) %>% 
   unnest(summarise_col) %>%
-  left_join(CONOPEPDB) %>% # Fix redundancy <----
+  # Fix redundancy <----
+  left_join(CONOPEPDB) %>%
   dplyr::count(sampleX, summarise_col, y_axis, sort = T) %>% drop_na() %>%
-  mutate(facet = "B) Exclusive DEGs") %>%
+  mutate(facet = "B) Exclusive DEGs")
+
+unique_degs_df %>%
   rbind(overall_degs_df) %>%
-  mutate(y_axis = factor(y_axis, levels = unique(y_axis))) %>%
+  mutate(y_axis = factor(y_axis, levels = levels(Globaldf$y_axis))) %>%
   mutate(summarise_col = factor(summarise_col, levels = recode_to)) %>%
   mutate(label = scales::comma(n)) %>%
   ggplot(aes(y = y_axis, x = summarise_col, fill = n)) + 
@@ -346,14 +362,252 @@ ggsave(P, filename = 'Superfamilies_by_degs.png',
 # Caution!!!
 # agglomerate gene_matrix by same superfamily going to mask allelic variation 
 
-barvizA <- CONOPEPDB %>% 
-  count(Superfamily, tab, sort = T)
+dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
-barvizB <- .count_vst %>%
-  as_tibble(rownames = "gene_id") %>%
-  left_join(distinct(CONOPEPDB, Superfamily, gene_id, tab)) %>%
-  group_by(Superfamily, tab) %>%
-  summarise_at(vars(all_of(colnames(.count_vst))), sum) %>% ungroup() 
+subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
+
+f <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix"
+
+f <- list.files(file.path(dir, subdir), f, full.names = T)
+
+dim(gene_matrix <- round(readRDS(f)))
+
+
+.colData <- list.files(dir, pattern = "Manifest", full.names = T) 
+
+recode_to <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"))
+
+recode_to <- structure(recode_to, names = c("Ctrl","Cam","Lit","Pol","Mix"))
+
+.colData <- read_tsv(.colData) %>% 
+  mutate(LIBRARY_ID = ifelse(grepl("cam2v_", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  mutate(LIBRARY_ID = ifelse(grepl("ctrl", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  select(LIBRARY_ID, Time, Diatery) %>% drop_na(Diatery) %>%
+  dplyr::mutate(Diatery = dplyr::recode_factor(Diatery, !!!recode_to)) %>%
+  mutate_if(is.character, as.factor)
+
+overall_degs_df <- UPSETDF %>% 
+  ungroup() %>%
+  unnest(summarise_col)
+
+# Matrix to zscore
+# matrix to tibble
+# filter degs
+# pivot longer
+# summarise by sample group
+# join to sf (CONOPEPDB)
+# 
+
+z_scores <- function(x) {(x-mean(x))/sd(x)}
+
+# UPSETDF %>% distinct(pep_seq) %>% pu
+
+# str(gene_matrix <- t(apply(gene_matrix, 1, z_scores)))
+
+
+# Overal
+
+DF1 <- gene_matrix %>%
+  as_tibble(rownames = "protein_id") %>%
+  left_join(distinct(CONOPEPDB, protein_id, pep_seq, y_axis)) %>%
+  right_join(distinct(overall_degs_df, pep_seq)) %>%
+  select(-protein_id, -pep_seq) %>%
+  group_by(y_axis) %>%
+  summarise_at(vars(all_of(colnames(gene_matrix))), sum) %>% 
+  # mutate_at(vars(all_of(colnames(gene_matrix))), z_scores)
+  pivot_longer(cols = colnames(gene_matrix), names_to = "LIBRARY_ID", values_to = "n") %>%
+  left_join(.colData) %>%
+  mutate(Time = ifelse(grepl("2", Time), "2 months", "4 months")) %>%
+  mutate(facet = "A) Overall DEGs") %>%
+  # group_by(Diatery) %>% mutate(n = z_scores(n))
+  group_by(y_axis) %>% mutate(n = z_scores(n))
+  
+
+unique_degs_df <- 
+  UPSETDF %>% 
+  ungroup() %>%
+  filter(n == 1) %>% 
+  unnest(summarise_col)
+
+DF2 <- gene_matrix %>%
+  as_tibble(rownames = "protein_id") %>%
+  left_join(distinct(CONOPEPDB, protein_id, pep_seq, y_axis)) %>%
+  right_join(distinct(unique_degs_df, pep_seq)) %>%
+  select(-protein_id, -pep_seq) %>%
+  group_by(y_axis) %>%
+  summarise_at(vars(all_of(colnames(gene_matrix))), sum) %>% 
+  pivot_longer(cols = colnames(gene_matrix), names_to = "LIBRARY_ID", values_to = "n") %>%
+  left_join(.colData) %>%
+  mutate(Time = ifelse(grepl("2", Time), "2 months", "4 months")) %>%
+  mutate(facet = "B) Exclusive DEGs") %>%
+  # group_by(Diatery) %>% mutate(n = z_scores(n))
+  group_by(y_axis) %>% mutate(n = z_scores(n))
+
+HeatmapViz <- DF1 %>%
+  rbind(DF2) %>%
+  drop_na(y_axis) %>%
+  mutate(label = scales::comma(n)) %>%
+  mutate(y_axis = factor(y_axis, levels = levels(Globaldf$y_axis))) 
+
+lo = floor(min(HeatmapViz$n))
+up = ceiling(max(HeatmapViz$n))
+mid = (lo + up)/2
+
+
+HeatmapViz %>%
+  drop_na(Diatery) %>%
+  ggplot(aes(y = y_axis, x = Diatery, fill = n)) + 
+  # facet_grid(~ sampleX + summarise_col) +
+  ggh4x::facet_nested(~ facet + Time, nest_line = T) +
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) +
+  # geom_raster() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+    na.value = "white", midpoint = mid, limit = c(lo, up), 
+    breaks = seq(lo, up, by = 3),
+    name = NULL) +
+  # geom_text(aes(label= label), hjust= 1, vjust = 0.5, size = 3, family = "GillSans", color = "white") +
+  theme_bw(base_family = "GillSans", base_size = 10) +
+  labs(x = "", y = "Superfamily") +
+  labs(x = "", y = "Superfamily") +
+  theme(
+    legend.position = "top",
+    # panel.border = element_blank(),
+    plot.title = element_text(hjust = 0),
+    plot.caption = element_text(hjust = 0),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    # axis.text.y.right = element_text(angle = 0, hjust = 1, vjust = 0, size = 2.5),
+    axis.text.y = element_text(angle = 0, size = 12),
+    axis.text.x = element_text(angle = 0),
+    strip.background = element_rect(fill = 'white', color = 'white'),
+    strip.text = element_text(color = "black",hjust = 1, size = 12)) -> P
+
+ggsave(P, filename = 'Superfamilies_by_degs_reads.png', 
+  path = pub_dir, width = 10, height = 10, dpi = 500, device = png)
 
 
 
+# Test if allelic ----
+
+# split by sf (y_axis)
+# write in a list of vectors
+# apply msa::msa
+# format to tydy format
+# unlist object of lists
+# plot individual
+# OR
+# Calculate ConsensusSequence score per sequences group, and plot in a single plot all the sf
+
+
+# myXStringSet <- distinct(CONOPEPDB, protein_id, pep_seq, y_axis) %>%
+#   right_join(distinct(overall_degs_df, pep_seq)) %>%
+#   drop_na() %>%
+#   mutate(seqname = paste(y_axis, protein_id, sep = "|")) %>% 
+#   distinct(y_axis, seqname, pep_seq) %>%
+#   pull(pep_seq, name = y_axis)
+  
+myXStringSet <- Globaldf %>% filter(y_axis == "MTFLLLLVSV") %>% 
+  left_join(CONOPEPDB) %>%  
+  mutate(y_axis = paste0(y_axis, "|", protein_id)) %>% pull(pep_seq, name = y_axis)
+
+
+myXStringSet <- Biostrings::AAStringSet(c(myXStringSet))
+
+library(msa)
+
+align <- msa::msa(myXStringSet, method = "ClustalW", order = "input")
+
+.align <- msa::msaConvert(align)$seq
+# 
+names(.align) <- msa::msaConvert(align)$nam
+
+library(ggsci)
+
+pat <- c("-", alphabet(myXStringSet, baseOnly=TRUE))
+# 
+DECIPHER::BrowseSeqs(AAStringSet(.align), colWidth = Inf)
+
+
+# Method 1
+# conMat <- consensusMatrix(align)
+
+data(BLOSUM62)
+msa::msaConservationScore(align, BLOSUM62)
+
+calculate_entropy <- function(alignment) {
+  
+  
+  require(stringr)
+  require(dplyr)
+  require(tidyr)
+  
+  # Read the alignment file (assuming FASTA format)
+  # alignment <- Biostrings::readAAStringSet(alignment_file)
+  #alignment <- read.fasta(alignment_file, as.string = TRUE) #Alternative using ape package
+  
+  alignment <- AAStringSet(alignment)
+  
+  # Convert to a matrix where rows are sequences and columns are positions
+  alignment_matrix <- str_split(as.character(alignment), "", simplify = TRUE)
+  
+  # Get the number of positions
+  num_positions <- ncol(alignment_matrix)
+  
+  # Initialize a list to store entropy values for each position
+  entropy_values <- numeric(num_positions)
+  
+  # Iterate through each position and calculate entropy
+  for (i in 1:num_positions) {
+    # Get the column (position) from the matrix
+    position_data <- alignment_matrix[, i]
+
+    # Calculate frequencies
+    frequencies <- table(position_data) / length(position_data)
+    
+    
+    # Recalculate to zero gaps from the entropy
+    # position_data <- position_data[!grepl("-", position_data)]
+    # position_data <- position_data[!grepl("-", names(frequencies))]
+    
+    # Calculate entropy using Shannon entropy formula
+    entropy <- -sum(frequencies * log2(frequencies), na.rm = TRUE)
+    
+    # entropy <- -sum(frequencies * log2(frequencies + 1e-10)) # Add a small value to avoid log(0)
+    
+    max_H <- log2(length(frequencies))
+    
+    # If normalize (range 0 to 1)
+    entropy_values[i] <- 1 - (entropy / max_H)
+    
+    # Store the entropy value
+    entropy_values[i] <- entropy
+    
+    # of if want to use the max frequent residue
+    # entropy_values[i] <- max(frequencies)
+  }
+  
+  # Return the entropy values
+  return(entropy_values)
+}
+
+
+plot(calculate_entropy(align))
+
+ggseqlogo::ggseqlogo(.align)
+
+library(ggseqlogo)
+# 
+# LOGO <- geom_logo(.align, p = F, method = "probability")
+# 
+# lo = floor(min(LOGO$y))
+# up = ceiling(max(LOGO$y))
+# mid = (lo + up)/2
+# 
+# LOGO %>% group_by(position) %>% summarise(sum(y))
+# 
+# LOGO %>% 
+#   # mutate()
+#   ggplot(aes(y = y, x = position)) + 
+#   geom_po
