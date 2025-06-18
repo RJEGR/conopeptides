@@ -46,7 +46,7 @@ RES <-
 
 RES %>% dplyr::count(sampleX, sort = T)
 
-RES %>% dplyr::count(sampleA, sampleB, sort = T) 
+RES %>% dplyr::count(sampleA, sampleB, sort = T) %>% view()
 
 # count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
 
@@ -137,6 +137,8 @@ P <- P +
     colour = "gray7", 
     arrow = arrow(ends = "first", length = unit(0.15, "cm")))
 
+P
+
 # Select multiple contrast of interest
 # shrimp ----
 # sampleA: Shrimp (2, 4,6 months)
@@ -215,7 +217,9 @@ DataViz <- rbind(
   Mixdf)
 
 
-# Omit by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
+# Separate by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
+Controldf <- DataViz %>% filter(sampleX == "Ctrl")
+
 DataViz <- DataViz %>% filter(sampleX != "Ctrl")
 
 
@@ -233,6 +237,7 @@ DataViz <- CONOPEPDB %>% distinct(protein_id, dna_seq, pep_seq) %>% right_join(D
 
 write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments_cds_level.rds"))
 
+write_rds(Controldf, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments_cds_level.rds"))
 
 frames_df <- DataViz %>%
   filter(FDR < 0.05 & abs(logFC) > 2 ) %>%
