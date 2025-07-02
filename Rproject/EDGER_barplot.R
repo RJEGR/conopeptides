@@ -1,9 +1,12 @@
 
-# Step0 select up in control 
+# Use logFC > 4 for more astringency
+# Step0 select up in control (Note Cam_2 and Cam_4 are invert to control in sampleA/B)
 # Step1 Select up putative conotoxins in time (2 and 4) vs control
 # Step2 Select up putative conotoxin dfferent between time 2 and 4 per diet
 # Step3 Contrast temporalidad and diet specificity using venn diagram
 # Step 4 Plot a facet of Metatranscriptome Sf, overal and exclusive DEGs per diet group
+
+c("#146179", "#09BC9F", "#FEB65F", "#C55E2D")
 
 rm(list = ls())
 
@@ -23,7 +26,7 @@ DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 # Filter transcripts by TRUE conotoxin
 
 CONOPEPDB <- DB %>%
-  filter(Signalp_class == "SP" ) %>%
+  filter(Signalp_class == "SP" & contig_impact_score > 0 & prediction_tool == "BOTH" & nchar(pep_seq) < 200) %>%
   mutate(uniprotkb_toxprot = sapply(strsplit(uniprotkb_toxprot, "[|]"), `[`, 2)) %>%
   mutate(uniprotkb_toxprot = ifelse(is.na(uniprotkb_toxprot), "uID", uniprotkb_toxprot)) %>%
   mutate(conoserver_protein = ifelse(is.na(conoserver_protein), "uID", conoserver_protein)) %>%
@@ -35,6 +38,9 @@ CONOPEPDB <- DB %>%
   mutate(sf = Superfamily) %>%
   select(protein_id, pep_seq, sf, Signalp_class, prediction_tool, hmm_pred_conodictor, Superfamily, uniprotkb_toxprot, conoserver_protein) %>%
   unite("y_axis", Signalp_class:conoserver_protein, sep = "|") 
+
+
+CONOPEPDB %>% drop_na()
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
 
@@ -48,28 +54,47 @@ f <- list.files(file.path(dir, subdir), f, full.names = T)
 
 RES <- read_rds(f)
 
+RES %>% dplyr::count(sampleX, sort = T)
 
-fcontrol <- paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_up_cds_level.rds")
-REScontrol <- read_rds(fcontrol) %>% filter(abs(logFC) > 2 & FDR < 0.05) %>% left_join(CONOPEPDB) 
+# As duplicated CDS have same expression patters and so on, same gene-pairwise values in DE analysis, 
+# just deduplicate redundancy omiting protein_id but using pep_seq column
 
-REScontrol %>% dplyr::count(sf, sort = T) %>% view()
+CONOPEPDB %>% count(pep_seq, sort = T) # If there is not any filter, the pep_seq will be duplicated, otherwise, if filtering are stringency not duplicates will be found
 
-# As the interest is to known which conotoxin over-expressed due to diet, omit Ctrl group in sampleX column
+# deduplicate to cds_level/pep_level using CONOPEPDB and join to RES
+
+nrow(RES)
+
+# number of intersected
+# Only fraction low 100 % must be found between unique(RES$protein_id)/unique(CONOPEPDB$protein_id)
+
+sum(unique(RES$protein_id) %in% unique(CONOPEPDB$protein_id)) 
+
+nrow(RES <- RES %>% right_join(CONOPEPDB) %>% select(-protein_id) %>% distinct())
+
+RES %>% right_join(CONOPEPDB) %>% 
+  write_rds(file = file.path(pub_dir, "EDGER_EffectSize_input.rds"))
+
+# Separate by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
+
+Controldf <- RES %>% filter(sampleX == "Ctrl")  %>% filter(abs(logFC) > 4 & FDR < 0.05) 
+
+Controldf %>% dplyr::count(sampleA, sampleB, sampleX, sort = T)
+
+# The Controldf contain the 'basal' conotoxin found in empiriral/natural conditions
+
 # In addition  filter significat DEGS
 
-DataViz <- RES %>% filter(sampleX != "Ctrl") %>% filter(abs(logFC) > 2 & FDR < 0.05) %>% right_join(CONOPEPDB)
+RES %>% ggplot(aes(logFC)) + geom_histogram() + facet_grid(sam_group ~.)
 
-# As duplicated CDS have same expression patters and so on, same gene-pairwise values in DE analysis, just deduplicate redundancy omiting protein_id but using pep_seq column
+DataViz <- RES %>% filter(sampleX != "Ctrl") %>% filter(abs(logFC) > 4 & FDR < 0.05) 
 
-# deduplicate to cds_level/pep_level
+DataViz %>% ggplot(aes(logFC)) + geom_histogram() + facet_grid(sam_group ~.)
 
-nrow(DataViz)
+DataViz %>% dplyr::count(sampleA, sampleB, sampleX)
 
-nrow(DataViz <- DataViz %>% select(-protein_id) %>% distinct())
 
 # Step1: Contrasting results against control (ie. omit contrast dietA_time1 vs dietA_time2)
-
-# DataViz <- DataViz %>% filter(if_any(where(is.character), ~ grepl(pattern = 'Ctrl', x = .x, ignore.case = T)))
 
 cols_to_check <- c("sampleA", "sampleB")
 
@@ -77,7 +102,6 @@ DataViz <- DataViz %>%
   filter(
     if_any(all_of(cols_to_check), ~ str_detect(.x, "Ctrl"))) 
 
-# DataViz <- DataViz %>% mutate(sampleA = ifelse(sampleA == "Ctrl", sampleB, sampleA))
 
 DataViz %>% dplyr::count(sam_group, sampleA, sampleB, sampleX)
 
@@ -145,7 +169,7 @@ DataVizTop %>%
     # vjust=  .7,  
     color="black", position = position_identity(), 
     family = "GillSans", size = 1.5)+
-  labs(y = NULL, x = x_label, title = "Up-expressed conotoxins under different ") +
+  labs(y = NULL, x = x_label, title = "Up-expressed conotoxins under different diets") +
   theme_bw(base_family = "GillSans", base_size = 10) +
   theme(
     legend.position = "none",
@@ -165,10 +189,23 @@ DataVizTop %>%
 
 P
 
-
 ggsave(P, filename = 'EDGERLOG2FCTOP10.png', 
   path = pub_dir, width = 5, height = 7, device = png, dpi = 600)
 
+# Filter Control by intersected down-expressed in all diets experiments
+# Find the upexpressed degs from Ctrl frequently co-occurring in diets
+
+ControlDEGS <- Controldf %>% 
+  mutate(Time = ifelse(grepl("_2$", sampleB), "2 months", "4 months")) %>% 
+  dplyr::count(Time, pep_seq, sort = T) %>% filter(n == 4) %>% 
+  distinct(pep_seq) %>%
+  left_join(DB) %>%
+  distinct(protein_id, pep_seq)
+
+ExperimentalDEGS <- DataViz %>% distinct(pep_seq) %>% left_join(DB) %>% distinct(protein_id, pep_seq)
+
+
+queries_for_zscore_heatmap <- rbind(ControlDEGS, ExperimentalDEGS) %>% distinct(protein_id) %>% pull()
 
 # omit -----
 
@@ -238,8 +275,43 @@ UPSETDF <- DataViz %>%
   group_by(pep_seq, sampleX) %>%
   summarise(across(summarise_col, .fns = list), n = n())
 
+
 # Plot upset
 recode_to <- structure(c("Shrimp", "Mollusk", "Polychaete", "Mixed"))
+
+DataViz %>% 
+  select(pep_seq, sam_group, sampleX) %>%
+  mutate(sampleX = ifelse(grepl("_2$", sampleX), "2 months", "4 months")) %>%
+  distinct() %>%
+  mutate(summarise_col = sam_group) %>% 
+  count(sampleX, summarise_col) %>%
+  mutate(summarise_col = factor(summarise_col, levels = rev(recode_to))) %>%
+  ggplot(aes(y = summarise_col, x = n)) + 
+  geom_col(position = position_stack(reverse = T), fill = "black") +
+  facet_grid(~ sampleX, scales = "free_x", space = "free_x") +
+  # geom_text(aes(label = summarise_col), color = "white")
+  theme_bw(base_family = "GillSans", base_size = 7) +
+  labs(x = "Set size (Number of putative conotoxins)", y = "Diet") +
+  scale_fill_manual("", values = c("#F3E0F7","#63589F")) +
+  theme(
+    legend.position = "top",
+    # panel.border = element_blank(),
+    plot.title = element_text(hjust = 0),
+    plot.caption = element_text(hjust = 0),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    # axis.text.y.right = element_text(angle = 0, hjust = 1, vjust = 0, size = 2.5),
+    axis.text.y = element_text(angle = 0, size = 10),
+    axis.text.x = element_text(angle = 0),
+    strip.background = element_rect(fill = 'white', color = 'white'),
+    strip.text = element_text(color = "black",hjust = 1, size = 10)) -> P
+
+# P
+
+ggsave(P, filename = 'Intersections_setSize.png', 
+  path = pub_dir, width = 3, height = 2, device = png, dpi = 600)
 
 
 library(ggupset)
@@ -247,25 +319,26 @@ library(ggupset)
 my_font <- "GillSans"
 
 P <- UPSETDF %>%
-  # filter(n > 1) %>%
+  # filter(sampleX == "4 months") %>%
   ggplot(aes(x = summarise_col)) +
   facet_grid(sampleX ~ ., scales = "free_y") +
   geom_bar(fill = "black") +
-  scale_y_reverse("Number of conotoxins") +
+  scale_y_reverse("Number of putative conotoxins") +
   geom_text(stat='count', aes(label = after_stat(count)), 
-    position = position_dodge(width = 1), vjust = 1.2, family = "GillSans", size = 2.5) +
+    position = position_dodge(width = 1.2), vjust = 1, family = "GillSans", size = 2) +
   scale_x_upset(order_by = "degree", reverse = F, position = "top") +
   labs(x = "Degree of intersections") +
-  theme_bw() +
+  theme_bw() + 
   theme_combmatrix(
+    # combmatrix.label.text = element_text(color = "blue", size=10),
     combmatrix.panel.point.color.fill = "black",
     combmatrix.label.make_space = F,
     # combmatrix.panel.point.color.fill = panel.point.color.fill,
-    combmatrix.panel.point.size = 0.25,
-    combmatrix.panel.line.size = 0.25,
-    base_family = "GillSans", base_size = 14,
+    combmatrix.panel.point.size = 0.15,
+    combmatrix.panel.line.size = 0.15,
+    base_family = "GillSans", base_size = 12,
     strip.background = element_rect(fill = 'gray90', color = 'white'),
-    strip.text = element_text(color = "black", size = 12, family = "GillSans",hjust = 0.5),
+    strip.text = element_text(color = "black", size = 10, family = "GillSans",hjust = 0.5),
     panel.grid.minor.y = element_blank(),
     panel.grid.major.y = element_blank(),
     panel.grid.minor.x = element_blank(),
@@ -276,30 +349,36 @@ P <- UPSETDF %>%
     axis.text.y = element_text(family = my_font)) +
   axis_combmatrix(levels = recode_to) 
 
-P
+# P +   scale_y_reverse("Number of conotoxins", breaks = seq(0,40, by = 10)) 
 
 ggsave(P, filename = 'Intersections.png', 
-  path = pub_dir, width = 5, height = 5, device = png, dpi = 600)
+  path = pub_dir, width = 4, height = 4, device = png, dpi = 600)
+
+# 
+
 
 # Facets ======
 # Filter conotoxin 
 
-CONOPEPDB <- DB %>%
-  drop_na(Superfamily) %>%
-  filter(Signalp_class == "SP" & contig_impact_score > 0 & prediction_tool == "BOTH") %>%
+# CONOPEPDB <- DB %>%
+  # drop_na(Superfamily) %>%
+  # filter(Signalp_class == "SP" & contig_impact_score > 0 & prediction_tool == "BOTH") %>%
   # select(pep_seq, hmm_pred_conodictor, Superfamily, prediction_tool, tab) %>%
   # mutate(hmm_pred_conodictor = stringr::str_to_sentence(hmm_pred_conodictor)) %>%
   # mutate(hmm_pred_conodictor = ifelse(is.na(hmm_pred_conodictor), "uID", hmm_pred_conodictor)) %>%
   # mutate(Superfamily = ifelse(is.na(Superfamily), "uID", Superfamily)) %>%
   # mutate(prediction_tool = ifelse(tab %in% "pHMM", paste0(prediction_tool,"_",tab), prediction_tool)) %>%
   # unite("y_axis", hmm_pred_conodictor:tab, sep = "|") %>%
-  mutate(y_axis = Superfamily)
+  # mutate(y_axis = Superfamily)
 
 # Global metatrascriptome
 # Here we can see number of allelic variants for different conotoxins families
+
+CONOPEPDB <- CONOPEPDB %>% mutate(y_axis = sf)
+
 Globaldf <- CONOPEPDB %>%
   dplyr::count(y_axis, sort = T) %>% drop_na() %>%
-  mutate(y_axis = factor(y_axis, levels = unique(y_axis))) %>%
+  mutate(y_axis = factor(y_axis, levels = rev(unique(y_axis)))) %>%
   mutate(facet = "A) Global diversity")
 
 Globaldf %>%
@@ -355,9 +434,11 @@ unique_degs_df %>%
     strip.background = element_rect(fill = 'white', color = 'white'),
     strip.text = element_text(color = "black",hjust = 1, size = 12)) -> P
 
+
 ggsave(P, filename = 'Superfamilies_by_degs.png', 
   path = pub_dir, width = 10, height = 10, dpi = 500, device = png)
 
+# By N reads (z-score) ====
 # in addition to number of transcripts, summarise number of reads per family (or maybe zscore?)
 # Caution!!!
 # agglomerate gene_matrix by same superfamily going to mask allelic variation 
@@ -379,11 +460,17 @@ recode_to <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"))
 
 recode_to <- structure(recode_to, names = c("Ctrl","Cam","Lit","Pol","Mix"))
 
+recode_time <- structure(c("","2 month", "4 month"))
+recode_time <- structure(recode_time, names = c("ctrl","2","4"))
+
+
 .colData <- read_tsv(.colData) %>% 
   mutate(LIBRARY_ID = ifelse(grepl("cam2v_", LIBRARY_ID), NA, LIBRARY_ID)) %>%
-  mutate(LIBRARY_ID = ifelse(grepl("ctrl", LIBRARY_ID), NA, LIBRARY_ID)) %>%
-  select(LIBRARY_ID, Time, Diatery) %>% drop_na(Diatery) %>%
+  mutate(LIBRARY_ID = ifelse(grepl("cam6", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  # mutate(LIBRARY_ID = ifelse(grepl("ctrl", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  select(LIBRARY_ID, Time, Diatery) %>% drop_na(LIBRARY_ID) %>%
   dplyr::mutate(Diatery = dplyr::recode_factor(Diatery, !!!recode_to)) %>%
+  dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time)) %>%
   mutate_if(is.character, as.factor)
 
 overall_degs_df <- UPSETDF %>% 
@@ -400,24 +487,83 @@ overall_degs_df <- UPSETDF %>%
 
 z_scores <- function(x) {(x-mean(x))/sd(x)}
 
-# UPSETDF %>% distinct(pep_seq) %>% pu
+sum(keepRows <- rownames(gene_matrix) %in% queries_for_zscore_heatmap)
 
-# str(gene_matrix <- t(apply(gene_matrix, 1, z_scores)))
+sum(keepCols <- colnames(gene_matrix) %in% .colData$LIBRARY_ID)
+
+str(HeatmapViz <- t(apply(gene_matrix[keepRows,keepCols], 1, z_scores)))
+
+# Normalize to vst---
+
+HeatmapViz[is.na(HeatmapViz)] <- 0
+
+h <- heatmap(HeatmapViz, keep.dendro = TRUE )
+
+HeatmapViz <- HeatmapViz %>%
+  as_tibble(rownames = "protein_id") %>%
+  left_join(distinct(CONOPEPDB, protein_id, pep_seq, y_axis)) %>%
+  pivot_longer(cols = colnames(HeatmapViz), names_to = "LIBRARY_ID", values_to = "n") %>%
+  left_join(.colData) %>%
+  # mutate(Time = ifelse(grepl("2", Time), "2 months", "4 months")) %>%
+  filter(!is.na(n))
+
+HeatmapViz<- HeatmapViz %>% filter(y_axis == "I1")
+
+lo = floor(min(HeatmapViz$n))
+up = ceiling(max(HeatmapViz$n))
+mid = (lo + up)/2
+
+P <- HeatmapViz %>%
+  drop_na(pep_seq) %>%
+  # sample_n(50) %>%
+  # group_by(Diatery) %>% mutate(n = z_scores(n))
+  ggplot(aes(y = pep_seq, x = Diatery, fill = n)) + 
+  ggh4x::facet_nested(y_axis ~ Time, scales = "free",space = "free", nest_line = T,switch = "y") +
+  geom_raster() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+    na.value = "white", midpoint = mid, limit = c(lo, up), 
+    breaks = seq(lo, up, by = 3),
+    name = NULL) +
+  labs(y = "", x = "") +
+  theme_classic(base_family = "GillSans", base_size = 12) +
+  theme(
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.text.y = element_text(size = 7),
+    # axis.text.y = element_blank(), 
+    # axis.ticks.y = element_blank(), axis.line.y = element_blank(),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1,size = 12),
+    strip.text.y.left = element_text(
+      angle = 0, hjust = 1,
+      size = 5),
+    strip.background = element_rect(colour = "transparent", fill = "transparent", size = 1)
+  )
+
+P
+
+ggsave(P, filename = 'Conotoxins_degs_under_diet_treatment.png', 
+  path = pub_dir, width = 5, height = 10, device = png, dpi = 600)
 
 
-# Overal
+# Overal by superfam ====
+
+# correlate n transcripts vs expresion
+
+
 
 DF1 <- gene_matrix %>%
   as_tibble(rownames = "protein_id") %>%
+  filter(protein_id %in% queries_for_zscore_heatmap) %>%
   left_join(distinct(CONOPEPDB, protein_id, pep_seq, y_axis)) %>%
-  right_join(distinct(overall_degs_df, pep_seq)) %>%
   select(-protein_id, -pep_seq) %>%
   group_by(y_axis) %>%
   summarise_at(vars(all_of(colnames(gene_matrix))), sum) %>% 
   # mutate_at(vars(all_of(colnames(gene_matrix))), z_scores)
   pivot_longer(cols = colnames(gene_matrix), names_to = "LIBRARY_ID", values_to = "n") %>%
-  left_join(.colData) %>%
-  mutate(Time = ifelse(grepl("2", Time), "2 months", "4 months")) %>%
+  right_join(.colData) %>%
   mutate(facet = "A) Overall DEGs") %>%
   # group_by(Diatery) %>% mutate(n = z_scores(n))
   group_by(y_axis) %>% mutate(n = z_scores(n))
@@ -431,14 +577,15 @@ unique_degs_df <-
 
 DF2 <- gene_matrix %>%
   as_tibble(rownames = "protein_id") %>%
+  filter(protein_id %in% queries_for_zscore_heatmap) %>%
   left_join(distinct(CONOPEPDB, protein_id, pep_seq, y_axis)) %>%
   right_join(distinct(unique_degs_df, pep_seq)) %>%
   select(-protein_id, -pep_seq) %>%
   group_by(y_axis) %>%
   summarise_at(vars(all_of(colnames(gene_matrix))), sum) %>% 
   pivot_longer(cols = colnames(gene_matrix), names_to = "LIBRARY_ID", values_to = "n") %>%
-  left_join(.colData) %>%
-  mutate(Time = ifelse(grepl("2", Time), "2 months", "4 months")) %>%
+  right_join(.colData) %>%
+  filter(Time != "Ctrl") %>%
   mutate(facet = "B) Exclusive DEGs") %>%
   # group_by(Diatery) %>% mutate(n = z_scores(n))
   group_by(y_axis) %>% mutate(n = z_scores(n))
@@ -455,15 +602,16 @@ mid = (lo + up)/2
 
 
 HeatmapViz %>%
+  mutate(Time = factor(Time, levels = c("Ctrl", "2 month", "4 month"))) %>%
   drop_na(Diatery) %>%
   ggplot(aes(y = y_axis, x = Diatery, fill = n)) + 
   # facet_grid(~ sampleX + summarise_col) +
-  ggh4x::facet_nested(~ facet + Time, nest_line = T) +
+  ggh4x::facet_nested(~ facet + Time, nest_line = T, scales = "free_x", space = "free_x") +
   geom_tile(color = "white", lwd = 0.5, linetype = 1) +
   # geom_raster() +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-    na.value = "white", midpoint = mid, limit = c(lo, up), 
-    breaks = seq(lo, up, by = 3),
+    na.value = "white", midpoint = 0, limit = c(lo, up), 
+    breaks = c(-2, 0, 3), # seq(lo, up, by = 3),
     name = NULL) +
   # geom_text(aes(label= label), hjust= 1, vjust = 0.5, size = 3, family = "GillSans", color = "white") +
   theme_bw(base_family = "GillSans", base_size = 10) +
@@ -483,6 +631,19 @@ HeatmapViz %>%
     axis.text.x = element_text(angle = 0),
     strip.background = element_rect(fill = 'white', color = 'white'),
     strip.text = element_text(color = "black",hjust = 1, size = 12)) -> P
+
+P  <- P + guides(
+  fill = guide_colorbar(barwidth = unit(1.5, "in"),
+    barheight = unit(0.1, "in"), label.position = "bottom",
+    alignd = 0.5,
+    title = "Row Z-score",
+    title.position  = "top",
+    title.theme = element_text(size = 10, family = "GillSans", hjust = 1),
+    ticks.colour = "black", ticks.linewidth = 0.35,
+    frame.colour = "black", frame.linewidth = 0.35,
+    label.theme = element_text(size = 10, family = "GillSans")
+  ))
+
 
 ggsave(P, filename = 'Superfamilies_by_degs_reads.png', 
   path = pub_dir, width = 10, height = 10, dpi = 500, device = png)
