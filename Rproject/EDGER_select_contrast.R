@@ -1,6 +1,6 @@
 
-# This is a copy from EDGERViz.R 
-# Groups direction: positive logFC == sampleA & negative logFC == sampleB
+# This is a copy and upgraded version from EDGERViz.R 
+# Groups direction: positive logFC == sampleA & negative logFC == sampleB (Note Cam_2 and Cam_4 are invert to control in sampleA/B)
 # selecting groups of contrasts as Edith suggest
 # Because Quantification performed at CDS level, including protein_ids with identical CDS, lets to collapse DEG results based on the CDS sequence. This is posible as redundancy spread to identical CDS having identical expression patterns. 
 
@@ -36,17 +36,13 @@ f <- "p05_exactTest_multiple_contrast.rds"
 
 f <- list.files(file.path(dir, subdir), f, full.names = T)
 
+read_rds(f) %>% dplyr::count(sampleA, sampleB) %>% view()
+
 RES <- 
   read_rds(f) %>%
-  dplyr::rename("protein_id" = "ids") %>%
-  mutate(sign = sign(logFC)) %>%
-  mutate(sampleX = ifelse(sign == 1, sampleA, sampleB))
+  dplyr::rename("protein_id" = "ids")
 
-# In sampple X we can know the independent/cumulative number of DEGs for each group
-
-RES %>% dplyr::count(sampleX, sort = T)
-
-RES %>% dplyr::count(sampleA, sampleB, sort = T) %>% view()
+RES %>% dplyr::count(sampleA, sampleB, sort = T) 
 
 # count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
 
@@ -139,7 +135,7 @@ P <- P +
 
 P
 
-# Select multiple contrast of interest
+# Select multiple contrast of interest =====
 # shrimp ----
 # sampleA: Shrimp (2, 4,6 months)
 # sampleB: Shrimp (4,6, months and Ctrl)
@@ -155,8 +151,34 @@ Shrimpdf <- RES %>%
 # filter(grepl("Cam_[0-9]$", sampleA)) %>%
 # filter(grepl("Cam_[0-9]$|Ctrl", sampleB)) 
 
+
 Shrimpdf %>%
-  dplyr::count(sampleA, sampleB)
+  mutate(sign = sign(logFC)) %>%
+  dplyr::count(sign, sampleA, sampleB)
+
+# Fixing the issue with direction in this group 
+# in the rest groups the sampleA is the Ctrl and sampleB the diet_group
+# In Shrimp, sampleA is diet_group and sampleB is the Ctrl
+# Therefore, flip the columns sampleA/B and direction of logFC column 
+
+Shrimpdfixed <- Shrimpdf %>% 
+  filter(sampleB == "Ctrl") %>% 
+  mutate(logFC = -1*logFC) %>%
+  mutate(sampleB = ifelse(sampleA %in% c("Cam_2"), "Cam_2", sampleB)) %>%
+  mutate(sampleB = ifelse(sampleA %in% c("Cam_4"), "Cam_4", sampleB)) %>%
+  mutate(sampleA = "Ctrl") 
+  
+
+
+Shrimpdfixed %>%
+  mutate(sign = sign(logFC)) %>%
+  dplyr::count(sign, sampleA, sampleB)
+
+Shrimpdf <- Shrimpdf %>%
+  filter(sampleB != "Ctrl") %>% 
+  rbind(Shrimpdfixed)
+
+Shrimpdf %>% dplyr::count(sampleA, sampleB)
 
 
 # Polychaete ----
@@ -173,7 +195,8 @@ polypdf <- RES %>%
 # filter(if_any(where(is.character), ~ grepl(pattern = 'Pol_[0-9]$|Ctrl', x = .x, ignore.case = T)))
 
 polypdf %>%
-  dplyr::count(sampleA, sampleB)
+  mutate(sign = sign(logFC)) %>%
+  dplyr::count(sign, sampleA, sampleB)
 
 # Mollusk ----
 # sampleA: Lit (2, 4 months)
@@ -217,8 +240,20 @@ DataViz <- rbind(
   Mixdf)
 
 
+DataViz <- DataViz %>%
+  mutate(sign = sign(logFC)) %>%
+  mutate(sampleX = ifelse(sign == 1, sampleA, sampleB))
+
+DataViz %>% dplyr::count(sampleX, sort = T)
+
+write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
+
+# Exit -----
+
 # Separate by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
 Controldf <- DataViz %>% filter(sampleX == "Ctrl")
+
+Controldf %>% dplyr::count(sampleB, sampleA, sort = T)
 
 DataViz <- DataViz %>% filter(sampleX != "Ctrl")
 
@@ -231,7 +266,7 @@ DataViz %>%
 
 nrow(DataViz %>% distinct(protein_id)) # 6086 putative conopeptides presented in the selected contrast (not log2FC and SIgnalP filtered yet)
 
-write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
+# write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
 
 DataViz <- CONOPEPDB %>% distinct(protein_id, dna_seq, pep_seq) %>% right_join(DataViz) %>%  select(-protein_id) %>% distinct()
 
