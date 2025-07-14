@@ -1,5 +1,5 @@
 # Conotoxin server processing
-
+# 
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
@@ -33,11 +33,22 @@ sum(duplicated(Names))
 
 # write a apply to save as vector the unique identifiers
 
-SEQS <- sort(as.character(seq1))
+# SEQS <- sort(as.character(seq1)) # <-- this would be errors in next steps, so omit
 
-names(SEQS) <- Names
+# names(SEQS) <- Names
+
+SEQS <- structure(as.character(seq1), names = names(seq1))
+
+str(names(SEQS) <- sapply(strsplit(names(SEQS), "[|]"), `[`, 1))
+
+# Sanity check
+# visualice vector position 1 matches between SEQS names and sequence in seq1
+SEQS[1]
+seq1[1]
 
 # Identify duplicated elements
+SEQS <- sort(SEQS)
+
 is_duplicated <- duplicated(SEQS) | duplicated(SEQS, fromLast = TRUE)
 
 # Mark duplicated elements
@@ -51,13 +62,15 @@ duplicated_groups <- split(names(SEQS)[is_duplicated], SEQS[is_duplicated])
 
 # Split the string by comma
 
-head(duplicated_groups <- lapply(duplicated_groups, function(x) paste0(x, collapse = ";")))
+head(duplicated_groups <- lapply(duplicated_groups, function(x) paste0(x, collapse = "|")))
 
 head(duplicated_groups <- unlist(duplicated_groups))
 
 duplicated_seqs <- names(duplicated_groups)
 
 duplicated_ids <- paste0("dedup_seq_",seq(1,length(duplicated_groups)))
+
+# duplicated_ids <- duplicated_groups
 
 UNIGENES <- structure(duplicated_seqs, names = duplicated_ids)
 
@@ -88,7 +101,7 @@ sum(keep <- grepl("Precursor", names(seq1))) # Only 2930 Precursor sequences
 
 # The size distribution does not seem different between Precursor and mature
 # hist(nchar(seq1[!keep]))
-# # hist(nchar(seq1[keep]))
+hist(nchar(seq1[keep]))
 
 # seq1[keep]
 
@@ -97,8 +110,6 @@ sum(keep <- grepl("Precursor", names(seq1))) # Only 2930 Precursor sequences
 str(SEQS <- unique(sort(as.character(seq1[keep])))) # 2824 unique precursor sequences
 
 sum(keep <- UNIGENES %in% unique(SEQS))
-
-
 
 outName <- gsub(".fa*", "", basename(f1))
 
@@ -122,19 +133,30 @@ head(data.frame(SEQS[!is_duplicated]))
 
 # Nucleotide level ----
 
-f2 <- list.files(dir, pattern = "conoserver_nucleic.fa.gz", full.names = T)
+f2 <- list.files(dir, pattern = "conoserver_nucleic.fa$", full.names = T)
 
 seqs <- Biostrings::readDNAStringSet(f2)
 
-# Not work yet
+# Count size 
+mean(nchar(seqs))
+sd(nchar(seqs))
+min(nchar(seqs))
+max(nchar(seqs))
+
+# Not work if there is not duplicates
+
 DEDUP <- function(seqs) {
   
+  # L <- length(unique(seqs))
+  
+  # if(L != length(seqs))
+    # if not true, omit the function
 
   Names <- sapply(strsplit(names(seqs), "[|]"), `[`, 1)
   
   names(seqs) <- Names
   
-  SEQS <- sort(as.character(seqs))
+  # SEQS <- sort(as.character(seqs))
   
   
   # Identify duplicated elements
@@ -176,30 +198,58 @@ DEDUP <- function(seqs) {
  
 }
 
+table(sapply(strsplit(names(seqs), "[|]"), `[`, 3))
 
-str(Names <- sapply(strsplit(names(seqs), "[|]"), `[`, 3))
 
-table(Names)
+# Generate randomize sequences from size 100, keep only sequences > 150 =----
+
+sum(keep <- nchar(seqs) >= 150)
+
+seqssized <- seqs[keep]
+
+
+table(sapply(strsplit(names(seqssized), "[|]"), `[`, 3))
+
+str(Names <- sapply(strsplit(names(seqssized), "[|]"), `[`, 1))
+
+names(seqssized) <- Names
+
+# and dedup
+# seqssized <- DEDUP(seqssized)
+
+outName <- gsub(".fa", "", basename(f2))
+
+outFile <- file.path(dir, paste0(outName, "_seq_length_150.fa"))
+
+Biostrings::writeXStringSet(seqssized, file = outFile)
+
+
+# only californiconus ====
 
 keep <- grepl('Conus californicus', names(seqs))
 
 seqs <- seqs[keep]
 
-seqs
+sum(keep <- nchar(seqs) >= 100)
 
-unique(seqs)
+seqs <- seqs[keep]
 
-# DEDUP(seqs)
+# seqs2 <- seqs[!keep]
 
 str(Names <- sapply(strsplit(names(seqs), "[|]"), `[`, 1))
 
 names(seqs) <- Names
 
-outName <- gsub(".fa.gz", "", basename(f2))
+unique(seqs)
 
-outFile <- file.path(dir, paste0(outName, "_californicus.fa"))
+outName <- gsub(".fa", "", basename(f2))
+
+outFile <- file.path(dir, paste0(outName, "_californicus_length_100.fa"))
 
 Biostrings::writeXStringSet(seqs, file = outFile)
+
+table(sapply(strsplit(names(seqs), "[|]"), `[`, 2))
+
 
 
 # MSA ====
