@@ -6,8 +6,6 @@
 # Step3 Contrast temporalidad and diet specificity using venn diagram
 # Step 4 Plot a facet of Metatranscriptome Sf, overal and exclusive DEGs per diet group
 
-c("#146179", "#09BC9F", "#FEB65F", "#C55E2D")
-
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
