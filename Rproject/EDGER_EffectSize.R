@@ -2,7 +2,7 @@
 
 # Estimates the effect size of diet and time and superfamilies (optional) over DEGs
 # as preliminar does not display proper effect size 
-
+# Note depending in the query degs is the effect size
 rm(list = ls())
 
 if(!is.null(dev.list())) dev.off()
@@ -13,6 +13,8 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
 dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
+
+library(tidyverse)
 
 # data 1 ----
 
@@ -42,6 +44,7 @@ Manifest <- read_tsv(.colData) %>%
   select(LIBRARY_ID, Time, Diatery) %>% drop_na(LIBRARY_ID) %>%
   dplyr::mutate(Diatery = dplyr::recode_factor(Diatery, !!!recode_to)) %>%
   dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time)) %>%
+  mutate(Design = paste(Time, Diatery, sep = "_")) %>%
   mutate_if(is.character, as.factor)
     
 # data 3 ----
@@ -51,10 +54,11 @@ DEGS <- read_rds(file.path(pub_dir, "EDGER_EffectSize_input.rds")) %>% filter(ab
 
 cols_to_check <- c("sampleA", "sampleB")
 
+DEGS <- DEGS %>%
+  filter(if_any(all_of(cols_to_check), ~ str_detect(.x, "Ctrl"))) %>%
+  filter(sampleX != "Ctrl") 
+
 DEGS %>%
-  filter(
-    if_any(all_of(cols_to_check), ~ str_detect(.x, "Ctrl"))) %>%
-  filter()
   count(sampleA, sampleB, sampleX, sort = T)
 
 
@@ -131,13 +135,46 @@ fit_model <- function(data, formula) {
   return(results)
 }
 
-# vars <- c("Condition","Site","design")
+
+# readRDS(f) %>%
+#   as_tibble(rownames = 'protein_id') %>%
+#   distinct() %>%
+#   dplyr::slice_sample(n = nrow(datExpr)) %>%
+#   pivot_longer(-protein_id, values_to = "expression", names_to = "LIBRARY_ID") %>%
+#   right_join(Manifest) %>%
+#   filter(expression > 0) %>%
+
+DATA %>%
+  fit_model(formula = "expression ~ Diatery") %>%
+  mutate(star = ifelse(p.value <.001, "***", 
+    ifelse(p.value <.01, "**",
+      ifelse(p.value <.05, "*", "ns")))) %>%
+  mutate(x_star = estimate + (0.1+std.error) * sign(estimate)) %>%
+  mutate(xmin = estimate-std.error, xmax = estimate+std.error) %>%
+  mutate(label = paste0(term, " (", star,")")) %>%
+  ggplot(aes(y = term, x = estimate)) + # color = Intercept
+  # facet_grid(Intercept~ ., scales = "free", space = "free") +
+  geom_point(size = 2, position = position_dodge(0.5)) +
+  geom_text(aes(x = x_star, label = star),
+    vjust = 0.5, hjust = 1, size= 4,
+    color="black",
+    position=position_dodge(0.5),
+    family =  "GillSans") +
+  geom_errorbar(aes(xmin = xmin, xmax = xmax),
+    width = 0.1, alpha = 0.3, 
+    # color = "black",
+    position=position_dodge(width = 0.5)
+  ) +
+  geom_vline(xintercept = 0, linetype="dashed", alpha=0.5, color = "black") +
+  labs(
+    y = "",
+    x = "Effect Size") + theme_bw()
+
+fit_data <- list()
+
 
 vars <- c("Time","Diatery")
 
-fit_model(DATA, formula = "expression ~ sf")
-
-fit_data <- list()
 
 for(i in vars) {
   
@@ -178,6 +215,8 @@ fitdf %>% count(term, Intercept)
 
 # Setting random valies
 
+vars <- c("Time","Diatery")
+
 fit_data <- list()
 
 counter <- 1
@@ -191,7 +230,7 @@ for (i in vars) {
     sample_data <- readRDS(f) %>%
       as_tibble(rownames = 'protein_id') %>%
       distinct() %>%
-      dplyr::slice_sample(n = 5) %>%
+      dplyr::slice_sample(n = nrow(datExpr)) %>%
       pivot_longer(-protein_id, values_to = "expression", names_to = "LIBRARY_ID") %>%
       right_join(Manifest) %>%
       filter(expression > 0)
@@ -248,10 +287,10 @@ fitdf %>%
 
 
 p <- fitdf %>%
-  filter(RandomSet == "True") %>%
+  # filter(RandomSet == "True") %>%
   ggplot(aes(y = Intercept, x = estimate, color = term, fill = term)) + # color = Intercept
-  # facet_grid(Intercept~ ., scales = "free", space = "free") +
-  geom_text(aes(x = x_star, label = label),
+  facet_grid(RandomSet~ ., scales = "free", space = "free") +
+  geom_text(aes(x = x_star, label = star),
     vjust = 0.5, hjust = 1, size= 4,
     color="black",
     position=position_dodge(0.5),
