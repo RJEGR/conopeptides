@@ -9,7 +9,8 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-dir <- "~/Documents/GitHub/conopeptides/03.Coverage/"
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/03.Coverage/"
+
 
 f <- list.files(dir, pattern = "counts.txt", full.names = T) 
 

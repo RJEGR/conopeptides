@@ -13,14 +13,16 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR"
   
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir"
+# dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir"
 
-f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.filt.rds", full.names = T)
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.filt.rds", full.names = T)
 
 # f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.filt.rds", full.names = T)
-f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.rds", full.names = T)
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper.fasta.transdecoder_genes.rds", full.names = T)
 
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
 
+f <- list.files(dir, pattern = "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix", full.names = T)
 
 library(DESeq2)
 library(tidyverse)
@@ -34,7 +36,8 @@ f <- list.files(path = dir, pattern = "Manifest", full.names = T)
 Manifest <- readr::read_tsv(f) #%>%
   # mutate(Sample_group = gsub("_E","", Sample_group))
 
-colData <- data.frame(LIBRARY_ID = factor(Manifest$LIBRARY_ID))
+colData <- data.frame(LIBRARY_ID = factor(Manifest$LIBRARY_ID)) %>% 
+  filter(Diatery != "camv") %>% filter(Time != "6") 
 
 dds <- DESeqDataSetFromMatrix(COUNT,
   colData,

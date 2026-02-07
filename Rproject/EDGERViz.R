@@ -31,13 +31,15 @@ recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixe
 
 library(tidyverse)
 
-pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
+
+# pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
 
 # LOAD data -----
 
 DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/"
 
 # R1 <- read_rds(paste0(dir, "/exactTest_multiple_contrast.rds")) %>% mutate(test = "exact")
 # R2 <- read_rds(paste0(dir, "/glmLRT_multiple_contrast.rds")) %>% mutate(test = "glmLRT")
@@ -89,18 +91,18 @@ DB %>%
   dplyr::count(Signalp_class, prediction_tool)
 
 CONOPEPDB <- DB %>% 
-  # filter(Signalp_class == "SP") %>%
+  filter(Signalp_class == "SP") %>%
   drop_na(prediction_tool) 
   # dplyr::count(Signalp_class)
   # filter(Region %in% c("(Mature)","(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)"))
 
 str(query_genes <- CONOPEPDB %>% distinct(protein_id) %>% pull()) # 3514 putative conopeptide genes
 
-sum(query_genes %in% RES$gene_id) # 2110 as EDGE.R remove low expressed transcripts
+sum(query_genes %in% RES$protein_id) # 2110 as EDGE.R remove low expressed transcripts
 
-RES <- RES %>% filter(gene_id %in% query_genes) 
+RES <- RES %>% filter(protein_id %in% query_genes) 
 
-nrow(RES %>% distinct(gene_id)) # 2110 putative conopeptides (not DEGs filtered yet)
+nrow(RES %>% distinct(protein_id)) # 2110 putative conopeptides (not DEGs filtered yet)
 
 RES %>%
   ggplot(aes(FDR)) + 
@@ -194,10 +196,13 @@ DataViz %>%
   ggplot(aes(FDR)) + 
   geom_histogram()
 
-nrow(DataViz %>% distinct(gene_id)) # 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
+nrow(DataViz %>% 
+       distinct(protein_id)) # 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
 
-write_rds(DataViz, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds"))
+write_rds(DataViz, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments_kallisto.rds"))
 
+DataViz %>%
+  count(sampleX,sam_group)
 
 # Exit ------
 
