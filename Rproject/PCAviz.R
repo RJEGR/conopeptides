@@ -11,7 +11,29 @@ if(!is.null(dev.list())) dev.off()
 
 options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
-pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR"
+
+extrafont::loadfonts(device = "win")
+
+base_text_fam <- "Gill Sans MT"
+
+my_custom_theme <- function(base_size = 14, legend_pos = "top", ...) {
+  base_size = 14
+  theme_bw(base_family = "Gill Sans MT", base_size = base_size) +
+    theme(legend.position = legend_pos,
+          strip.placement = "outside", 
+          strip.background = element_rect(fill = 'gray90', color = 'white'),
+          strip.text = element_text(angle = 0, size = base_size, hjust = 0), 
+          axis.text = element_text(size = rel(0.7), color = "black"),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          ...
+    )
+}
+
+
+pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
   
 # dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir"
 
@@ -31,28 +53,51 @@ dim(COUNT <- read_rds(f))
 
 COUNT <- round(COUNT)
 
-f <- list.files(path = dir, pattern = "Manifest", full.names = T)
+#
+#
+#
 
-Manifest <- readr::read_tsv(f) #%>%
-  # mutate(Sample_group = gsub("_E","", Sample_group))
+time_levs <- c("Ctrl", "2", "4", "6")
 
-colData <- data.frame(LIBRARY_ID = factor(Manifest$LIBRARY_ID)) %>% 
-  filter(Diatery != "camv") %>% filter(Time != "6") 
+recode_time <- structure(c("Control", "2 months", "4 months", "6 months"), names = time_levs)
 
-dds <- DESeqDataSetFromMatrix(COUNT,
-  colData,
-  design = ~ LIBRARY_ID)
+Diatery_levs <- c("Ctrl","Cam", "Lit", "Pol", "Mix")
+
+recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"), names = Diatery_levs)
 
 
-dds <- DESeq2::varianceStabilizingTransformation(dds)
 
-datExpr <- assay(dds)
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/03.Coverage/"
+
+Manifest <- list.files(dir, pattern = "Manifest.tsv", full.names = T)
+
+Manifest <- read_tsv(Manifest) %>% distinct() %>%
+  mutate(LIBRARY_ID = ifelse(grepl("cam2v_", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  mutate(LIBRARY_ID = ifelse(grepl("cam6", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  drop_na() %>%
+  dplyr::mutate(Feeding = dplyr::recode_factor(Feeding, !!!recode_Diatery)) %>%
+  dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time))
+
+# colData <- data.frame(LIBRARY_ID = factor(Manifest$LIBRARY_ID)) %>% 
+#   filter(Diatery != "camv") %>% filter(Time != "6") 
+
+# Manifest <- as.data.frame(Manifest)
+# rownames(Manifest) <- Manifest$LIBRARY_ID
+
+# dds <- DESeqDataSetFromMatrix(COUNT,
+  # Manifest,
+  # design = ~ LIBRARY_ID)
+
+
+COUNT <- DESeq2::varianceStabilizingTransformation(COUNT)
+
+# datExpr <- assay(dds)
 
 
 # 1) PCA ------
 
 
-PCA = prcomp(t(datExpr), center = T, scale. = F)
+PCA = prcomp(t(COUNT), center = T, scale. = F)
 
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 # percentVar <- round(PCA$sdev/sum(PCA$sdev)*100,1)
@@ -100,7 +145,7 @@ PCAdf %>%
 
 # col_values <- c("gray20","#ad6aea","#ffd700","#63b8ff", "#ee2c2c")
 
-col_values <- c("#282419", "#C43726", "#F1DCBD", "#449A6D", "#366B4C")
+col_values <- c("#282419", "#C43726",  "#449A6D", "#366B4C") #"#F1DCBD",
 
 
 recode_time <- c(  `Ctrl` = "Control",
@@ -111,10 +156,10 @@ recode_time <- c(  `Ctrl` = "Control",
 
 PCAdf %>%
   mutate(LIBRARY_ID = rownames(.)) %>%
-  left_join(Manifest) %>% 
+  right_join(Manifest) %>% 
   # left_join(hclust_res) %>%
-  dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time)) %>%
-  mutate(col = Time, label = Diatery) %>%
+  # dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time)) %>%
+  mutate(col = Time, label = Feeding) %>%
   ggplot(., aes(PC1, PC2, label = label)) +
   # coord_fixed(ratio = sd_ratio) +
   geom_abline(slope = 0, intercept = 0, linetype="dashed", alpha=0.5) +
@@ -124,21 +169,12 @@ PCAdf %>%
   geom_point(size = 5, alpha = 1, aes(color = col), 
     shape = 21, stroke = 1.5, fill = "white") +
   # geom_text( family = "GillSans", mapping = aes(label = label), size = 5) +
-  ggrepel::geom_text_repel(family = "GillSans", mapping = aes(label = label), size = 5) +
+  ggrepel::geom_text_repel(family = base_text_fam, mapping = aes(label = label), size = 5) +
   # ylim(-200, 200) + xlim(-400, 400) +
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
-  # see::scale_color_pizza(name = "", reverse = T) +
-  # scale_color_manual("", values = col_values) +
-  theme_bw(base_family = "GillSans", base_size = 14) +
-  guides(color = guide_legend(title = "", label_size = 12, byrow = T)) +
-  theme(plot.title = element_text(hjust = -0.5), 
-    legend.position = 'top',
-    legend.spacing.x = unit(0.1, 'cm'),
-    legend.text = element_text(size = 8),
-    panel.grid = element_blank()
-    # legend.spacing.y = unit(-1, 'mm')
-  ) -> p
+  my_custom_theme() +
+  guides(color = guide_legend(title = "", byrow = T)) -> p
 
 p
 

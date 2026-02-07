@@ -190,7 +190,7 @@ DataViz <- rbind(
 # PLOT DEGS (summary) -----
 
 # Omit by now DEGs enriched in Ctrl (ie sampleX != "Ctrl)
-DataViz <- DataViz %>% filter(sampleX != "Ctrl")
+# DataViz <- DataViz %>% filter(sampleX != "Ctrl")
 
 DataViz %>%
   ggplot(aes(FDR)) + 
