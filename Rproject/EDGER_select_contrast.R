@@ -22,13 +22,13 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
 
 # LOAD data -----
 
 DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/"
 
 subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
 
@@ -36,7 +36,7 @@ f <- "p05_exactTest_multiple_contrast.rds"
 
 f <- list.files(file.path(dir, subdir), f, full.names = T)
 
-read_rds(f) %>% dplyr::count(sampleA, sampleB) %>% view()
+read_rds(f) %>% dplyr::count(sampleA, sampleB)
 
 RES <- 
   read_rds(f) %>%
@@ -59,17 +59,19 @@ RES %>% dplyr::count(sampleA, sampleB, sort = T)
 DB %>%  dplyr::count(Signalp_class, prediction_tool)
 
 CONOPEPDB <- DB %>% 
-  # filter(Signalp_class == "SP") %>%
-  # filter(prediction_tool == "BOTH") %>%
-  drop_na(prediction_tool) 
+  mutate(len = nchar(pep_seq)-1) %>%
+  filter(effective_length_frac > 0.5) %>%
+  # To be consistent w/ RES
+  filter(Signalp_class == "SP") %>%
+  drop_na(prediction_tool, Superfamily) 
 
 str(query_genes <- CONOPEPDB %>% distinct(protein_id) %>% pull()) # 12136 putative conopeptide genes
 
-sum(query_genes %in% unique(RES$protein_id)) # 7624/12136 as EDGE.R remove low expressed transcripts (freq > 1 exp > 1)
+sum(query_genes %in% unique(RES$protein_id)) # 992/1120 as EDGE.R remove low expressed transcripts (freq > 1 exp > 1)
 
 RES <- RES %>% filter(protein_id %in% query_genes) 
 
-nrow(RES %>% distinct(protein_id)) # 7624 putative conopeptides (not DEGs filtered yet)
+nrow(RES %>% distinct(protein_id)) # 992 putative conopeptides (not DEGs filtered yet)
 
 RES %>%
   ggplot(aes(FDR)) + 
@@ -246,7 +248,9 @@ DataViz <- DataViz %>%
 
 DataViz %>% dplyr::count(sampleX, sort = T)
 
-write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
+# write_rds(DataViz, file = paste0(file.path(dir, subdir), "/cds_exactTest_multiple_contrast_ctrl_and_treatments.rds"))
+
+write_rds(DataViz, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments_kallisto.rds"))
 
 # Exit -----
 
