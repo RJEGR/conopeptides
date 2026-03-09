@@ -41,19 +41,6 @@ DB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv"))
 
 dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/"
 
-# R1 <- read_rds(paste0(dir, "/exactTest_multiple_contrast.rds")) %>% mutate(test = "exact")
-# R2 <- read_rds(paste0(dir, "/glmLRT_multiple_contrast.rds")) %>% mutate(test = "glmLRT")
-
-# rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% 
-#   ggplot(aes(FDR)) + 
-#   facet_wrap( ~ test) +
-#   geom_histogram()
-
-# Count the time of both test coincide
-
-# rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(sampleA, sampleB, ids) %>% tally(n)
-# rbind(R1, R2) %>% filter(FDR < 0.05 & abs(logFC) > 2) %>% count(test) 
-
 subdir <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
 
 f <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix"
@@ -91,18 +78,19 @@ DB %>%
   dplyr::count(Signalp_class, prediction_tool)
 
 CONOPEPDB <- DB %>% 
+  mutate(len = nchar(pep_seq)-1) %>%
+  filter(effective_length_frac > 0.5) %>%
+  # To be consistent w/ RES
   filter(Signalp_class == "SP") %>%
-  drop_na(prediction_tool) 
-  # dplyr::count(Signalp_class)
-  # filter(Region %in% c("(Mature)","(Mature)-(Pro-region)", "(Mature)-(Pro-region)-(Signal)"))
+  drop_na(prediction_tool, Superfamily) 
 
-str(query_genes <- CONOPEPDB %>% distinct(protein_id) %>% pull()) # 3514 putative conopeptide genes
+str(query_genes <- CONOPEPDB %>% distinct(protein_id) %>% pull()) # 1120 putative conopeptide genes
 
-sum(query_genes %in% RES$protein_id) # 2110 as EDGE.R remove low expressed transcripts
+sum(query_genes %in% RES$protein_id) # 992 as EDGE.R remove low expressed transcripts
 
 RES <- RES %>% filter(protein_id %in% query_genes) 
 
-nrow(RES %>% distinct(protein_id)) # 2110 putative conopeptides (not DEGs filtered yet)
+nrow(RES %>% distinct(protein_id)) # 992 putative conopeptides (not DEGs filtered yet)
 
 RES %>%
   ggplot(aes(FDR)) + 
@@ -197,7 +185,7 @@ DataViz %>%
   geom_histogram()
 
 nrow(DataViz %>% 
-       distinct(protein_id)) # 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
+       distinct(protein_id)) # 939 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
 
 write_rds(DataViz, file = paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments_kallisto.rds"))
 
