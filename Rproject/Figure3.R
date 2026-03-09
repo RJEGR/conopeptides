@@ -1,4 +1,5 @@
 
+# Global View(including pHMM and conflicts)
 # Estimate Duct and venom vulb of C californicus transcriptome annotation of expressed conotoxins
 # 
 # Calculate :
@@ -50,6 +51,11 @@ Diatery_levs <- c("Ctrl","Cam", "Lit", "Pol", "Mix")
 recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixed"), names = Diatery_levs)
 
 
+diet_col <- c("gray20","#146179", "#09BC9F", "#FEB65F", "#C55E2D")
+
+diet_col <- structure(diet_col, names = recode_Diatery)
+
+
 library(tidyverse)
 
 pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
@@ -69,7 +75,7 @@ CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv")) %>%  #view()
   filter(Signalp_class == "SP") %>%
   drop_na(prediction_tool, Superfamily) 
 
-CONOPEPDB %>% count(Superfamily, sort = T) %>% View
+CONOPEPDB %>% count(Superfamily, sort = T) #%>% View
 
 dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
 
@@ -82,6 +88,14 @@ keep <- rownames(COUNTS) %in% CONOPEPDB$protein_id
 sum(keep)
 
 dim(COUNTS <- COUNTS[keep,])
+
+# by_count <- 1; by_freq <- 2
+# 
+# keep <- rowSums(COUNTS > by_count) >= by_freq
+# 
+# sum(keep)/nrow(COUNTS) # N transcripts
+# 
+# nrow(COUNTS <- COUNTS[keep,])
 
 # normalize
 # 
@@ -99,31 +113,48 @@ Manifest <- list.files(dir, pattern = "Manifest.tsv", full.names = T)
 Manifest <- read_tsv(Manifest) %>% distinct() %>%
   mutate(LIBRARY_ID = ifelse(grepl("cam2v_", LIBRARY_ID), NA, LIBRARY_ID)) %>%
   mutate(LIBRARY_ID = ifelse(grepl("cam6", LIBRARY_ID), NA, LIBRARY_ID)) %>%
-  drop_na()
+  drop_na() |>
+  dplyr::mutate(Feeding = dplyr::recode_factor(Feeding, !!!recode_Diatery)) %>%
+  dplyr::mutate(Time = dplyr::recode_factor(Time, !!!recode_time))
+
 
 barvizA <- CONOPEPDB %>% 
   count(Superfamily, tab, sort = T)
 
+sum(barvizA$n)
+
 barvizB <- COUNTS %>%
   as_tibble(rownames = "protein_id") %>%
-  left_join(distinct(CONOPEPDB, Superfamily, protein_id, tab)) %>%
-  group_by(Superfamily, tab) %>%
+  # left_join(distinct(CONOPEPDB, Superfamily, protein_id, tab, pep_seq)) %>%
+  # group_by(Superfamily, tab) %>%
   # summarise_at(vars(all_of(colnames(COUNTS))), sum) %>% ungroup() %>%
   pivot_longer(cols = all_of(colnames(COUNTS)), values_to = 'fill', names_to = "LIBRARY_ID") %>%
   right_join(Manifest, by = "LIBRARY_ID") %>% filter(fill > 0)
 
+barvizB |> distinct(protein_id)
+
+barvizB |> 
+  write_rds(file.path(pub_dir, "S1_table_global_conotoxin_expressión.rds"))
+
 barvizB %>% 
-  count(Superfamily, tab, sort = T)
+  count(Superfamily, tab, sort = T) 
 
 barvizB %>% group_by(Feeding) %>% tally(fill)
+
+barvizB |> 
+  group_by(Superfamily, pep_seq, tab) |> 
+  summarise(n = n_distinct(protein_id), CPM = sum(fill), Groups =  paste(sort(unique(Feeding)), collapse = ",")) |>
+  # filter(tab == "pHMM") |>
+  write_csv(file.path(pub_dir, "S1_table_global_conotoxin_expressión.csv"))
 
 # calculate the diversity-abundanxe index (shannon-based)
 # 
 # 
 # 3. Calcular el Índice de Diversidad y el Peso Combinado
 shannon_results <- barvizB %>%
+  # filter(tab %in% "pHMM") %>%
   # Agrupamos por gen para que los cálculos sean relativos a cada gen
-  group_by(Superfamily,tab,Feeding ) %>% # Feeding
+  group_by(Superfamily,Feeding ) %>% # tab
   mutate(
     # Calcular la proporción (pi) de cada isoforma dentro de su gen
     total_gene_abundance = sum(fill),
@@ -143,53 +174,70 @@ shannon_results <- barvizB %>%
     # 3. Calculamos el Weighted Index (Diversidad x Abundancia)
     weight = shannon_index * total_abundance,
     
+    
+    
     # 4. Contamos cuántas isoformas contribuyeron (opcional)
     n = n()
+  ) %>%
+  # The Evenness-Adjusted Abundance (Pielou's J): 
+  # Best for: Penalizing genes that look diverse but are actually dominated by a single isoform
+
+  mutate(
+    # Handle case where N=1 (log(1)=0) to avoid NaN
+    J = ifelse(n > 1, shannon_index / log(n), 0), 
+    evenness_weight = total_abundance * J
   ) %>%
   # Ordenar por el peso final para ver los genes más "relevantes"
   arrange(desc(weight)) 
 
-threshold_value <- quantile(shannon_results$weight, probs = 0.5)
+
+# ggplot(shannon_results, aes(log10(total_abundance), n, size = J, color = J)) + geom_point()
+
+# threshold_value <- quantile(shannon_results$evenness_weight, probs = 0.25)
 
 shannon_results <- shannon_results %>%
   ungroup() %>%
-  mutate(facet = "B) Conotoxin expression") %>% 
-  # filter(total_abundance > 100) %>% 
-  # --- NEW STEP: Create a grouping variable for the facet ---
-  mutate(range_group = ifelse(weight > threshold_value, "High Abundance", "Low Abundance")) %>%
-  # Optional: Set levels so "Low" appears on the left and "High" on the right
-  mutate(range_group = factor(range_group, levels = c("Low Abundance", "High Abundance"))) 
+  mutate(facet = "B) Global Conotoxin expression") %>% 
+  # filter(weight > evenness_weight) %>%
+  mutate(x_axis = log10(total_abundance)) %>%
+  dplyr::mutate(Feeding = dplyr::recode_factor(Feeding, !!!recode_Diatery)) 
 
-shannon_results %>% 
-  count(range_group)
 
 sf_levels <- shannon_results %>%
-  group_by(Superfamily) %>% summarise(weight = sum(weight)) %>%
-  arrange(desc(weight)) %>%
+  group_by(Superfamily) %>% summarise(x_axis = sum(x_axis)) %>%
+  arrange(desc(x_axis)) %>%
   distinct(Superfamily) %>% pull()
   
 text_df <- shannon_results %>%
   group_by(Superfamily) %>% 
-  summarise(n = sum(n), weight = sum(weight)) %>%
+  summarise(n = sum(n), x_axis = sum(x_axis)) %>%
   mutate(label = paste0("(", n,")"))
   
-p <- shannon_results %>% 
+p <- shannon_results %>%
+  # dplyr::mutate(Feeding = dplyr::recode_factor(Feeding, !!!recode_Diatery))  %>%
   mutate(Superfamily = factor(Superfamily, levels = rev(sf_levels))) %>%
-  ggplot(aes(y = Superfamily, x = weight   )) +
+  ggplot(aes(y = Superfamily, x = x_axis)) +
   facet_grid(~ facet, scales = "free_x", space = "free") +
-  geom_col(aes(fill = tab)) +
-  scale_x_continuous("Weight (Total Expression x N isoforms)",labels = scales::comma_format(scale = 1E-6, suffix = "M"), limits = c(0,2E6)) +
+  geom_col(aes(fill = Feeding), position = position_stack(reverse = T)) +
+  # scale_x_continuous("Transcripts Per Million (TPM)",labels = scales::comma_format(scale = 1E-6, suffix = "M"), limits = c(0,1E6)) +
+  scale_x_continuous(expression(Log[10] ~ "Transcripts Per Million"), limits = c(0,30)) +
   ylab("Gene Superfamily") +
-  theme_bw(base_size = 12, base_family = base_text_fam) +
-  scale_fill_grey("") +
+  # theme_bw(base_size = 12, base_family = base_text_fam) +
+  # scale_fill_grey("") +
+  scale_fill_manual("",values = diet_col) +
   geom_text(data = text_df, aes(label = label), size = 2.5,
             hjust = -0.1, vjust = 0.25,
             family = base_text_fam, position = position_dodge(width = 1)) +
   my_custom_theme() +
-  theme(panel.spacing.x = unit(1, "cm"))
+  theme(panel.spacing.x = unit(1, "cm"),
+        legend.text = element_text(size =  10), 
+        legend.key.width = unit(0.5, "cm"),
+        legend.key.height = unit(0.5, "cm"))
 
-p
+# p
+# 
+ggsave(p, filename = 'Superfamilies.png', path = pub_dir, width = 6, height = 6, device = png, dpi = 500)
 
-ggsave(p, filename = 'Superfamilies.png', path = pub_dir, width = 5, height = 6, device = png, dpi = 500)
+# View(text_df)
 
-
+sum(text_df$n)
