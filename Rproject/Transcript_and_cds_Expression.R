@@ -14,9 +14,9 @@ options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
 library(tidyverse)
 
-pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
 
-orf_dir <- "/Users/cigom/Documents/GitHub/conopeptides/05.Prediction/Merged_polyA_hisat_SuperDuper.transdecoder_dir_upgrade/"
+orf_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/05.Prediction/Merged_polyA_hisat_SuperDuper.transdecoder_dir_upgrade/"
 
 dna <- list.files(orf_dir, "Merged_polyA_hisat_SuperDuper.fasta.transdecoder.cds$", full.names = T)
 

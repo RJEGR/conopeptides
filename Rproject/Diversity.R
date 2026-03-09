@@ -16,6 +16,26 @@ if(!is.null(dev.list())) dev.off()
 
 options(stringsAsFactors = FALSE, readr.show_col_types = FALSE)
 
+
+
+extrafont::loadfonts(device = "win")
+
+my_custom_theme <- function(base_size = 14, legend_pos = "top", ...) {
+  base_size = 14
+  theme_bw(base_family = "Gill Sans MT", base_size = base_size) +
+    theme(legend.position = legend_pos,
+          strip.placement = "outside", 
+          strip.background = element_rect(fill = 'gray90', color = 'white'),
+          strip.text = element_text(angle = 0, size = base_size, hjust = 0), 
+          axis.text = element_text(size = rel(0.7), color = "black"),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          ...
+    )
+}
+
 time_levs <- c("Ctrl", "2", "4", "6")
 recode_time <- structure(c("Control", "2 months", "4 months", "6 months"), names = time_levs)
 
@@ -27,11 +47,14 @@ recode_Diatery <- structure(c("Control","Shrimp", "Mollusk", "Polychaete", "Mixe
 
 library(tidyverse)
 
-pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+# pub_dir <- "/Users/cigom/Documents/GitHub/conopeptides/PUBLICATION_DIR/"
+
+pub_dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/"
+
 
 # LOAD data -----
 
-# DB <- read_rds(paste0(pub_dir, "/structured_db.rds"))
+DB <- read_rds(paste0(pub_dir, "/structured_db.rds"))
 
 read_rds(paste0(pub_dir, "/structured_db.rds")) %>% mutate(len = nchar(pep_seq)) %>% 
   # count(prediction_tool, len) %>%
@@ -42,13 +65,15 @@ read_rds(paste0(pub_dir, "/structured_db.rds")) %>% mutate(len = nchar(pep_seq))
   geom_boxplot(aes(x= len, y = prediction_tool))
   geom_histogram(aes(len)) + facet_grid(prediction_tool ~ ., scales = "free_y")
 
-CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv")) %>%  view()
+CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv")) %>%  #view()
   mutate(len = nchar(pep_seq)-1) %>%
   # To be consistent w/ RES
   filter(Signalp_class == "SP") %>%
   drop_na(prediction_tool) 
 
 CONOPEPDB %>% count(Signalp_class, prediction_tool)
+
+DB %>% distinct(pep_seq)
 
 # How to filter True conopeptides?
 # Find which vars, correlates by some groups
@@ -130,23 +155,55 @@ cor_df %>%
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, 
       margin = unit(c(t = 0.5, r = 0, b = 0, l = 0), "mm")))
 
-# Continue here
+# Continue here -------
 
 CONOPEPDB <- CONOPEPDB %>% filter(Signalp_class == "SP") %>% drop_na(prediction_tool) 
 
+# search for cds (kallisto/salmon) quantification to merge with prevalence step
+# 
+# dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/"
 
-dir <- "/Users/cigom/Documents/GitHub/conopeptides/06.Quantification/MATRIX_RSEM_dir/"
+# f <- list.files(dir, pattern = "Merged_polyA_hisat_SuperDuper_isoforms.filt.rds", full.names = T)
+
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/06.Quantification/MATRIX_RSEM_dir/KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder_DIR/"
+
+f <- list.files(dir, pattern = "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix", full.names = T)
+
+COUNTS <- read_rds(f)
+
+keep <- rownames(COUNTS) %in% CONOPEPDB$protein_id
+
+sum(keep)
+
+dim(COUNTS <- COUNTS[keep,])
+
+
+by_count <- 1; by_freq <- 2
+
+keep <- rowSums(COUNTS > by_count) >= by_freq
+
+sum(keep)/nrow(COUNTS) # N transcripts
+
+nrow(COUNTS <- COUNTS[keep,])
+
+COUNTS <- round(COUNTS)
+
+prevelancedf <- apply(COUNTS, 2, function(x) sum(x > 0))
 
 # EDGER RES: 1678 putative conopeptides presented in the contrast selected (not DEGs filtered yet)
 
-RES.P <- read_rds(paste0(dir, "/glmLRT_multiple_contrast_ctrl_and_treatments.rds")) %>%  
+f <- "glmLRT_multiple_contrast_ctrl_and_treatments_kallisto.rds"
+
+# f <- "/glmLRT_multiple_contrast_ctrl_and_treatments.rds"
+
+RES.P <- read_rds(paste0(dir, f)) %>%  
   filter(FDR < 0.05 & abs(logFC) > 2) %>%
   mutate(sign = sign(logFC)) %>%
   mutate(sampleX = ifelse(sign == 1, sampleA, sampleB))
 
-RES.P %>% distinct(gene_id) # 1,224 putative pep are degs
+RES.P %>% distinct(protein_id) # 1,224 putative pep are degs
 
-.count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
+# .count_vst <- read_rds(paste0(dir, "/counts_vst_nt_raw.rds"))$vst
 
 .colData <- list.files(dir, pattern = "Manifest", full.names = T) 
 
@@ -347,3 +404,48 @@ p <- plotdf %>%
 p
 
 
+# Diversity
+# 
+# 
+# 
+dir <- "C://Users//cinai/OneDrive/Documentos/PUBLICATION_DIR/03.Coverage/"
+
+Manifest <- list.files(dir, pattern = "Manifest.tsv", full.names = T)
+
+Manifest <- read_tsv(Manifest) %>% distinct() %>%
+  mutate(LIBRARY_ID = ifelse(grepl("cam2v_", LIBRARY_ID), NA, LIBRARY_ID)) %>%
+  mutate(LIBRARY_ID = ifelse(grepl("cam6", LIBRARY_ID), NA, LIBRARY_ID)) 
+
+
+prevelancedf = apply(X = COUNTS,
+                     MARGIN = 2,
+                     FUN = function(x){sum(x > 10)})
+
+hist(prevelancedf)
+
+df <- data.frame(n = prevelancedf, 
+                 invsimp = vegan::diversity(t(COUNTS), index = "invsimpson"),
+                 shannon = vegan::diversity(t(COUNTS), index = "shannon"),
+                 TotalAbundance = colSums(COUNTS)) %>% 
+  as_tibble(rownames = 'LIBRARY_ID') %>%
+  left_join(Manifest) %>%
+  mutate(Time = recode_factor(Time, !!!recode_time, .ordered = T)) %>%
+  mutate(Feeding = recode_factor(Feeding, !!!recode_Diatery, .ordered = T)) %>%
+  drop_na() %>%
+  mutate(facet = "A) Global diversity")
+
+
+df %>% 
+  ggplot(aes(n, Feeding)) + geom_col(fill = "black") +
+  facet_grid(Time ~facet, scales = "free_y", space = "free_y") +
+  my_custom_theme()
+
+RES.P %>%
+  count(sampleX,sam_group)
+  
+# to estimate diversity by groups of sf, use alfadf()
+# found in https://github.com/RJEGR/ZOONOTIC_BACTERIAL_NETWORK/blob/20799be137bb28b5202b58ce551fb07a3d3b6188/EDA-feature-tax-loberas.R#L234
+
+df %>% 
+  ggplot(aes(y = Diversity, x = Feeding, fill = Feeding)) + 
+  geom_boxplot() 
