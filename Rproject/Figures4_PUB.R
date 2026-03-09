@@ -53,6 +53,7 @@ diet_col <- structure(diet_col, names = recode_to)
 recode_to <- structure(recode_to, names = c("Ctrl","Cam","Lit","Pol","Mix"))
 
 recode_time <- structure(c("","2 months", "4 months"))
+
 recode_time <- structure(recode_time, names = c("Ctrl","2","4"))
 
 # data 1 ----
@@ -64,6 +65,17 @@ f <- "KALLISTO_Merged_polyA_hisat_SuperDuper.fasta.transdecoder.matrix"
 f <- list.files(file.path(dir, subdir), f, full.names = T)
 
 dim(datExpr <- round(readRDS(f)))
+
+
+by_count <- 10; by_freq <- 2
+
+keep <- rowSums(datExpr > by_count) >= by_freq
+
+sum(keep)/nrow(datExpr) # N transcripts
+
+nrow(datExpr <- datExpr[keep,])
+
+datExpr <- round(datExpr)
 
 
 # data 2 ----
@@ -90,11 +102,19 @@ CONOPEPDB <- read_tsv(paste0(pub_dir, "/conopeptides.tsv")) %>%  #view()
   filter(Signalp_class == "SP") %>%
   drop_na(prediction_tool, Superfamily) 
 
+
+CONOPEPDB %>%
+  count(Region, Score_sf)
+
+# sum(rowSums(datExpr))
+# 
+# head(rowSums(datExpr))
+
 # data 3 ----
 
 f <- "glmLRT_multiple_contrast_ctrl_and_treatments_kallisto.rds"
 
-DEGS <- read_rds(file.path(dir, f)) %>% filter(abs(logFC) > 4 & FDR < 0.05) 
+DEGS <- read_rds(file.path(dir, f)) %>% filter(abs(logFC) > 2 & FDR < 0.05) 
 
 # try individual Ctrl from Diet at timeX
 
@@ -129,19 +149,57 @@ DataViz %>%
   mutate(Superfamily = factor(Superfamily, levels = rev(yaxis_level))) %>%
   ggplot(aes(sampleX, Superfamily, label = n)) + geom_text() + my_custom_theme()
 
-DEGS %>% 
+P <- DEGS %>% 
+  # filter(protein_id %in% qgenes) %>% 
+  left_join(DB) %>% 
   mutate(Superfamily = factor(Superfamily, levels = rev(yaxis_level))) %>%
+  mutate(sam_group = factor(sam_group, levels = recode_to)) %>%
   ggplot(aes(y = Superfamily, x = abs(logFC))) + 
-  facet_grid(~ sam_group) +
+  ggstats::geom_stripped_rows() +
+  xlim(0,20) +
+  # facet_grid(~ sam_group) +
   # geom_jitter(position = position_jitter(0.1), shape = 1) +
-  stat_summary(fun = "mean", geom = "line", color="red") +
-  stat_summary(fun.data=mean_sdl, geom="pointrange", color="red") +
+  stat_summary(aes(color = sam_group), fun = "mean", geom = "line", position = position_dodge(width = 0.75)) +
+  stat_summary(aes( color = sam_group,fill = sam_group), fun.data=mean_se, geom="pointrange", position = position_dodge(width = 0.75), alpha = 0.5) +
+  scale_color_manual("",values = diet_col) +
+  scale_fill_manual("",values = diet_col) +
   labs(x = expression(Log[2] ~FC), y = "Gene Superfamily") +
   my_custom_theme()
 
+P
+
+ggsave(P, filename = 'PUB_log2fc_plot.png', 
+       path = pub_dir, width = 5, height = 6, device = png, dpi = 600)
+
+
+DF1 <- CONOPEPDB %>%  
+  distinct(protein_id, Region, Superfamily) %>% 
+  count(Region, Superfamily, sort = T, name = "Total contigs")
+
+# remove samples from the plot
+colnames(datExpr) <- gsub("_|-",".", colnames(datExpr))
+
+keep <-  colnames(datExpr) %in% levels(Manifest$LIBRARY_ID) 
+
+sum(keepRows <- rownames(datExpr) %in% CONOPEPDB$protein_id)
+
+sum(keepCols <- colnames(datExpr) %in% levels(Manifest$LIBRARY_ID) )
+
+DF2 <- datExpr[keepRows,keepCols] %>%
+  as_tibble(rownames = "protein_id") %>%
+  left_join(CONOPEPDB, by = "protein_id") %>%
+  group_by(Region, Superfamily) %>% summarise_at(vars(all_of(colnames(datExpr))), sum) %>%
+  # as_tibble(rownames = "yaxis") %>%
+  pivot_longer(cols = colnames(datExpr[keepRows,keepCols]), names_to = "LIBRARY_ID", values_to = "n")  %>%
+  group_by(Region, Superfamily) %>% tally(n, name = "Total Reads")
+
+inner_join(DF1, DF2) %>% pivot_wider(names_from = Region, values_from = `Total Reads`)
+
 # data 4
 
-CONOPEPDB <- DEGS %>% distinct(protein_id, Superfamily)%>% dplyr::rename("yaxis" = "Superfamily")
+CONOPEPDB <- DEGS %>% 
+  distinct(protein_id, Superfamily, pep_seq)%>% 
+  dplyr::rename("yaxis" = "Superfamily")
 
 yaxis_level <- CONOPEPDB %>% dplyr::count(yaxis, sort = T) %>% pull(yaxis)
 
@@ -158,17 +216,6 @@ rbind(ControlDEGs %>% dplyr::count(sampleX, Superfamily, sort = T),
 # yaxis_level <- CONOPEPDB %>% dplyr::count(yaxis, sort = T) %>% pull(yaxis)
 
 # CONOPEPDB %>% dplyr::count(yaxis) %>% view()
-
-
-# remove samples from the plot
-colnames(datExpr) <- gsub("_|-",".", colnames(datExpr))
-
-keep <-  colnames(datExpr) %in% levels(Manifest$LIBRARY_ID) 
-
-sum(keepRows <- rownames(datExpr) %in% CONOPEPDB$protein_id)
-
-sum(keepCols <- colnames(datExpr) %in% levels(Manifest$LIBRARY_ID) )
-
 
 dim(datExpr <- datExpr[keepRows,keepCols])
 
@@ -235,13 +282,17 @@ PCAdf %>%
     # legend.spacing.y = unit(-1, 'mm')
   ) -> plot_pca
 
-plot_pca
+# plot_pca
 
 # Heatmap of degs -----
 # Summarise first to Superfamilies category
 
 queries_for_zscore_heatmap <- DEGS %>% 
-  distinct(protein_id, pep_seq) %>% 
+  group_by(sampleX, Superfamily) %>% 
+  arrange(desc(abs(logFC)), .by_group = T) %>% 
+  # filter(logFC == max(logFC)) %>%
+  # slice_head(n = 5) %>%
+  ungroup() %>% distinct(protein_id, pep_seq) %>% 
   pull(pep_seq, name = protein_id)
 
 z_scores <- function(x) {(x-mean(x))/sd(x)}
@@ -256,14 +307,24 @@ sum(keepCols <- colnames(datExpr) %in% levels(Manifest$LIBRARY_ID))
 
 HeatmapViz <- datExpr[keepRows,keepCols] %>%
   as_tibble(rownames = "protein_id") %>%
-  right_join(CONOPEPDB) %>%
-  group_by(yaxis) %>%
-  summarise_at(vars(all_of(colnames(datExpr))), sum) %>%
+  left_join(CONOPEPDB, by = "protein_id") %>%
+  mutate(yaxis = paste0(yaxis, " (", protein_id, ")")) %>%
+  # group_by(yaxis) %>% summarise_at(vars(all_of(colnames(datExpr))), sum) %>%
   data.frame(row.names = .$yaxis) %>%
-  select(-yaxis) %>% as.matrix()
+  select(-yaxis, -pep_seq, -protein_id) %>% as.matrix()
 
 str(HeatmapViz <- t(apply(HeatmapViz, 1, z_scores)))
 
+
+h <- heatmap(HeatmapViz, col = cm.colors(12), keep.dendro = T)
+
+hc_samples <- as.hclust(h$Colv)
+plot(hc_samples)
+hc_order <- hc_samples$labels[h$colInd]
+
+hc_genes <- as.hclust(h$Rowv)
+plot(hc_genes)
+order_genes <- hc_genes$labels[h$rowInd]
 
 HeatmapViz <- HeatmapViz %>% 
   # mutate_at(vars(all_of(colnames(datExpr))), z_scores) %>% # <- here is an issue as all control are down-epressed not red color m
@@ -272,7 +333,8 @@ HeatmapViz <- HeatmapViz %>%
   as_tibble(rownames = "yaxis") %>%
   pivot_longer(cols = colnames(HeatmapViz), names_to = "LIBRARY_ID", values_to = "n") %>%
   left_join(Manifest) %>% 
-  mutate(yaxis = factor(yaxis, levels = rev(yaxis_level))) %>%
+  # mutate(yaxis = factor(yaxis, levels = rev(yaxis_level))) %>%
+  mutate(yaxis = factor(yaxis, levels = rev(order_genes))) %>%
   # mutate(facet = "Global conotoxins expression")
   mutate(facet = "Differential up-expressed conotoxins under diet")
   
