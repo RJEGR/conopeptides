@@ -2,6 +2,9 @@
 
 ![Figure 1](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
 
+![Alt text](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
+*Figure 1: This is a caption.*
+
 # Author
 Ricardo Gomez-Reyes
 # Description
