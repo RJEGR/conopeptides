@@ -1,19 +1,18 @@
 # De novo transcriptome assembly for the specie Californiconus californicus
 
-![Figure 3](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
+![Figure 1](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
 
 # Author
 Ricardo Gomez-Reyes
 # Description
 <div align="justify">
-The justified description of the proyect will be here
+Cone snails (family conidae) are venomous marine mollusks that use large repertoires of small, structured toxins for defense, competitor deterrence, or predation (or a combination thereof, Terlau and Olivera, 2004).  They comprise the largest single genus of venomous animals known, and are ca. 500 Conus species, where each species has the potential to express ∼100 different venom peptides (Espiritu et al., 2001). 
+
+Cone snail toxins, mostly disulfide-rich and well-structured peptides known as conotoxins, are of interest as they can bind and interfere with the function of a diverse set of receptors and ion channel targets (Woodward et al., 1990). Because they discriminate between closely related subtypes of ion channels, conotoxins are widely used as pharmacological agents in ion channel research, and several have direct diagnostic and therapeutic potential (Kaas et al., 2011). 
+
+The advancement of molecular techniques has significantly accelerated the discovery of conotoxin genes. The initial identification of a conotoxin gene in 1992 (Hillyard et al., 1992) was enabled by the development of Polymerase Chain Reaction (PCR) technology in 1983 (Mullis and Faloona 1987). Utilizing primers based on conserved superfamily sequences, PCR maintains its vital role in the systematic screening for novel conotoxin genes (Conticello et al., 2001). More recently, transcriptomics, which entails the analysis of messenger RNA (mRNA) in Conus venom duct transcriptomes, has capitalized on cost-effective, high-throughput next-generation sequencing to substantially enhance the rate of novel conotoxin gene discovery across diverse species (Gao et al., 2017). Transcriptome analysis furnishes a dynamic and comprehensive perspective on all mRNA species and their respective expression levels within a given experiment, tissue, or cell.
+Conotoxin expressions vary depending on the circumstances since the animal changes the composition of its venom depending on whether they are using it for preying, defending themselves, or eating (Bernaldez-Sarabia et al., 2019). 
+
+The present investigation determines whether dietary breadth or dietary specificity influences the conotoxin gene expression patterns and diversity.  Discuss whether conotoxin gene expression may be explained by defensive strategies against predators (ie. similar conotoxin gene expression patterns in samples)
+
 </div>
-
-Here good introduction to methods for conopeptides [identification](https://bmcgenomics.biomedcentral.com/articles/10.1186/1471-2164-12-60#Sec15)
-
-Continue in 
-/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/californicus/02.Assembly
-
-Here we propose an alternative representation for each gene, which we refer to as a superTranscript. SuperTranscripts contain the sequence of all exons of a gene without redundancy (Figure 1A). They can be constructed from any set of transcripts including de novo assemblies and we have developed a python program to build them called Lace (available from https://github.com/Oshlack/Lace/wiki). Lace works by building a splice graph[13] for each gene, then topologically sorting the graph using Kahn’s algorithm[14] (Figure 1B). Building superTranscripts is a simple post-assembly step that promises to unlock numerous analytical approaches for non-model organisms.
-
-A powerful, new application of superTranscripts is merging transcriptomes from a variety of sources. 
