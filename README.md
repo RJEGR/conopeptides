@@ -1,4 +1,7 @@
 # De novo transcriptome assembly for the specie Californiconus californicus
+
+![Figure 3](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
+
 # Author
 Ricardo Gomez-Reyes
 # Description
