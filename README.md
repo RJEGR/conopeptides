@@ -6,7 +6,7 @@
 *Figure 1: The database schema describes the workflow used to generate a supplementary database after analyzing RNA-seq data.*
 
 # Author
-Ricardo Gomez-Reyes
+*Formal bioinformatic analysis:* Ricardo Gomez-Reyes
 # Description
 <div align="justify">
 Cone snails (family conidae) are venomous marine mollusks that use large repertoires of small, structured toxins for defense, competitor deterrence, or predation (or a combination thereof, Terlau and Olivera, 2004).  They comprise the largest single genus of venomous animals known, and are ca. 500 Conus species, where each species has the potential to express ∼100 different venom peptides (Espiritu et al., 2001).Cone snail toxins, mostly disulfide-rich and well-structured peptides known as conotoxins, are of interest as they can bind and interfere with the function of a diverse set of receptors and ion channel targets (Woodward et al., 1990). Because they discriminate between closely related subtypes of ion channels, conotoxins are widely used as pharmacological agents in ion channel research, and several have direct diagnostic and therapeutic potential (Kaas et al., 2011). 
