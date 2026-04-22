@@ -1,9 +1,9 @@
-# De novo transcriptome assembly for the specie Californiconus californicus
+# Dietary-specific (breath or specificity) influences toxin diversity and expression in the generalist C. californicus.
 
-![Figure 1](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
+
 
 ![Alt text](https://github.com/RJEGR/conopeptides/blob/main/Figures/1.png)
-*Figure 1: This is a caption.*
+*Figure 1: The database schema describes the workflow used to generate a supplementary database after analyzing RNA-seq data.*
 
 # Author
 Ricardo Gomez-Reyes
@@ -18,4 +18,5 @@ Conotoxin expressions vary depending on the circumstances since the animal chang
 </div>
 
 # Database schema
-![Figure 2](https://github.com/RJEGR/conopeptides/blob/main/Figures/2.png)
+![Alt text](https://github.com/RJEGR/conopeptides/blob/main/Figures/2.png)
+*Figure 2: Relational tables contain information from the transcriptomic analysis study of the venom duct of C. californicus (Figure 1) and describe the expression profile and diversity of toxins under the breadth and specificity of four different diets.*
